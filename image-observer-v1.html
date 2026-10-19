@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>image-observer-v1 · Detection Build 01</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1320px; margin: 0 auto; padding: 44px 32px 32px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+    h1 { font-size: 25px; font-weight: 650; letter-spacing: -0.9px; margin: 0; }
+    .version { color: #69778a; font-weight: 400; font-size: 16px; margin-left: 8px; letter-spacing: 0; }
+    .build { color: #0050ff; background: #e9efff; border: 1px solid #d7e3ff; padding: 7px 11px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+    .intro { color: #687586; font-size: 13px; line-height: 1.7; margin: 0 0 28px; }
+    .upload { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; padding: 26px 20px; background: #fff; border: 1px dashed #b9c6d9; border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .upload:hover, .upload.dragging { border-color: #0050ff; background: #f8faff; }
+    .upload:focus-within { outline: 2px solid #0050ff; outline-offset: 3px; }
+    .upload svg { color: #0050ff; }
+    .upload strong { font-size: 14px; font-weight: 550; }
+    .upload span { font-size: 12px; color: #7b8796; }
+    .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    #status { min-height: 32px; margin: 10px 0 5px; font-size: 12px; color: #687586; line-height: 1.7; overflow-wrap: anywhere; }
+    #status[data-state="error"] { color: #b42c34; }
+    .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel { min-width: 0; border: 1px solid #dfe4eb; border-radius: 10px; background: #fff; overflow: hidden; }
+    h2 { margin: 0; padding: 16px 19px; font-size: 13px; font-weight: 550; border-bottom: 1px solid #edf0f4; }
+    .preview { min-height: 350px; padding: 18px; display: flex; align-items: center; justify-content: center; background: #fafbfc; }
+    .placeholder { color: #9ba5b3; font-size: 13px; text-align: center; }
+    canvas { display: block; max-width: 100%; max-height: 65vh; width: auto; height: auto; object-fit: contain; }
+    [hidden] { display: none !important; }
+    @media (max-width: 700px) {
+      main { padding: 25px 16px; }
+      header { align-items: flex-start; flex-direction: column; gap: 12px; }
+      h1 { font-size: 23px; }
+      .panels { grid-template-columns: 1fr; gap: 16px; }
+      .preview { min-height: 240px; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>image-observer<span class="version">v1</span></h1>
+      <span class="build">Detection · Build 01</span>
+    </header>
+    <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
+    <label class="upload" id="dropZone" for="upload">
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></svg>
+      <strong>点击上传图片，或将图片拖到这里</strong>
+      <span>JPG / PNG · 最长边不超过 1600px · 无需联网</span>
+      <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
+    </label>
+    <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
+    <div class="panels">
+      <section class="panel" aria-labelledby="originalLabel">
+        <h2 id="originalLabel">原图</h2>
+        <div class="preview">
+          <span class="placeholder" id="originalPlaceholder">上传后显示原图</span>
+          <canvas id="original" hidden role="img" aria-label="原图预览"></canvas>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="outputLabel">
+        <h2 id="outputLabel">Detection 输出图</h2>
+        <div class="preview">
+          <span class="placeholder" id="outputPlaceholder">上传后生成蓝色检测框</span>
+          <canvas id="output" hidden role="img" aria-label="蓝色检测框输出图"></canvas>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+/* Detection Build 01: local, deterministic CPU image analysis; no models or network. */
+(function (root) {
+  'use strict';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // Fit exclusive-right/bottom coordinates. Area limits are fractions of the image.
+  // Search integer dimensions so even small images respect the limits when feasible.
+  function fit(box, w, h, minArea = 0.08, maxArea = 0.80) {
+    w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h));
+    const bw = Math.max(1, Math.abs(box[2] - box[0]));
+    const bh = Math.max(1, Math.abs(box[3] - box[1]));
+    const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
+    const lo = Math.max(1, Math.ceil(w * h * minArea));
+    const hi = Math.max(1, Math.floor(w * h * maxArea));
+    let best = null, bestScore = Infinity;
+    for (let pass = 0; pass < 2 && !best; pass++) {
+      for (let ww = 1; ww <= w; ww++) {
+        let lower = Math.max(1, Math.ceil(ww / 3.5));
+        let upper = Math.min(h, Math.floor(ww * 3.5));
+        if (pass === 0) {
+          lower = Math.max(lower, Math.ceil(lo / ww));
+          upper = Math.min(upper, Math.floor(hi / ww));
+        }
+        if (lower > upper) continue;
+        const hh = clamp(Math.round(bh), lower, upper);
+        const score = Math.log(ww / bw) ** 2 + Math.log(hh / bh) ** 2;
+        if (score < bestScore) { bestScore = score; best = [ww, hh]; }
+      }
+    }
+    if (!best) best = [1, 1];
+    const x = clamp(Math.round(cx - best[0] / 2), 0, w - best[0]);
+    const y = clamp(Math.round(cy - best[1] / 2), 0, h - best[1]);
+    return [x, y, x + best[0], y + best[1]];
+  }
+
+  function fallback(w, h) {
+    const rect = (x, y, a, b, lo, hi) => fit([x * w, y * h, a * w, b * h], w, h, lo, hi);
+    return [rect(.17, .17, .83, .83, .08, .8),
+      rect(.08, .10, .32, .34, .012, .16), rect(.65, .14, .91, .40, .012, .16),
+      rect(.12, .65, .39, .91, .012, .16), rect(.64, .65, .90, .90, .012, .16)];
+  }
+
+  function integral(values, w, h) {
+    const stride = w + 1, out = new Float64Array(stride * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) {
+        row += values[y * w + x];
+        out[(y + 1) * stride + x + 1] = row + out[y * stride + x + 1];
+      }
+    }
+    return out;
+  }
+  function sum(ii, s, b) {
+    return ii[b[3] * s + b[2]] - ii[b[1] * s + b[2]]
+      - ii[b[3] * s + b[0]] + ii[b[1] * s + b[0]];
+  }
+  const area = b => (b[2] - b[0]) * (b[3] - b[1]);
+  function iou(a, b) {
+    const intersect = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]))
+      * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    return intersect / Math.max(1, area(a) + area(b) - intersect);
+  }
+
+  function analyze(image) {
+    const w = image.width, h = image.height, n = w * h, rgba = image.data;
+    if (w < 3 || h < 3 || !rgba || rgba.length < n * 4) return fallback(w, h);
+    const gray = new Float32Array(n), square = new Float32Array(n);
+    const redGreen = new Float32Array(n), blueYellow = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      // Composite transparent pixels on white, matching the preview background.
+      const a = rgba[i * 4 + 3] / 255;
+      const r = rgba[i * 4] * a + 255 * (1 - a);
+      const g = rgba[i * 4 + 1] * a + 255 * (1 - a);
+      const b = rgba[i * 4 + 2] * a + 255 * (1 - a);
+      gray[i] = .299 * r + .587 * g + .114 * b;
+      square[i] = gray[i] ** 2; redGreen[i] = r - g; blueYellow[i] = b - (r + g) / 2;
+    }
+    const gi = integral(gray, w, h), qi = integral(square, w, h), stride = w + 1;
+    const info = new Float32Array(n), radius = Math.max(2, Math.round(Math.min(w, h) * .025));
+    let total = 0, totalSquare = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, left = y * w + Math.max(0, x - 1);
+      const right = y * w + Math.min(w - 1, x + 1);
+      const up = Math.max(0, y - 1) * w + x, down = Math.min(h - 1, y + 1) * w + x;
+      const box = [Math.max(0, x - radius), Math.max(0, y - radius),
+        Math.min(w, x + radius + 1), Math.min(h, y + radius + 1)];
+      const mean = sum(gi, stride, box) / area(box);
+      const variance = Math.max(0, sum(qi, stride, box) / area(box) - mean * mean);
+      const edge = Math.hypot(gray[right] - gray[left], gray[down] - gray[up]);
+      const color = Math.abs(redGreen[right] - redGreen[left]) + Math.abs(redGreen[down] - redGreen[up])
+        + Math.abs(blueYellow[right] - blueYellow[left]) + Math.abs(blueYellow[down] - blueYellow[up]);
+      info[i] = .8 * edge + .6 * Math.abs(gray[i] - mean) + .45 * Math.sqrt(variance) + .14 * color;
+      total += info[i]; totalSquare += info[i] ** 2;
+    }
+    if (total < n * .04) return fallback(w, h);
+    const mean = total / n, deviation = Math.sqrt(Math.max(0, totalSquare / n - mean ** 2));
+    const ii = integral(info, w, h), mask = new Uint8Array(n);
+    for (let i = 0; i < n; i++) mask[i] = info[i] > mean + .45 * deviation ? 1 : 0;
+    const mi = integral(mask, w, h), spread = Math.max(1, Math.round(Math.min(w, h) * .012));
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      mask[y * w + x] = sum(mi, stride, [Math.max(0, x - spread), Math.max(0, y - spread),
+        Math.min(w, x + spread + 1), Math.min(h, y + spread + 1)]) > 0 ? 1 : 0;
+    }
+    const candidates = [], queue = new Int32Array(n);
+    // Connected edge/contrast regions provide object-like bounding rectangles.
+    for (let start = 0; start < n; start++) {
+      if (!mask[start]) continue;
+      let head = 0, tail = 1, x1 = w, y1 = h, x2 = 0, y2 = 0;
+      queue[0] = start; mask[start] = 0;
+      while (head < tail) {
+        const p = queue[head++], x = p % w, y = Math.floor(p / w);
+        x1 = Math.min(x1, x); y1 = Math.min(y1, y); x2 = Math.max(x2, x + 1); y2 = Math.max(y2, y + 1);
+        const neighbors = [x > 0 ? p - 1 : -1, x + 1 < w ? p + 1 : -1,
+          y > 0 ? p - w : -1, y + 1 < h ? p + w : -1];
+        for (const q of neighbors) if (q >= 0 && mask[q]) { mask[q] = 0; queue[tail++] = q; }
+      }
+      if (tail >= Math.max(3, n * .0003)) candidates.push([x1, y1, x2, y2]);
+    }
+    // Multi-scale information windows also work when edges form one large component.
+    for (const scale of [.15, .24, .36, .52, .70]) {
+      const ww = Math.max(2, Math.round(w * scale)), hh = Math.max(2, Math.round(h * scale));
+      for (let gy = 0; gy < 7; gy++) for (let gx = 0; gx < 7; gx++) {
+        const x = Math.round((w - ww) * gx / 6), y = Math.round((h - hh) * gy / 6);
+        candidates.push([x, y, x + ww, y + hh]);
+      }
+    }
+    const rank = (lo, hi) => candidates.map(b => {
+      const box = fit(b, w, h, lo, hi), a = area(box);
+      return { box, score: Math.max(0, sum(ii, stride, box) - .35 * mean * a) / Math.sqrt(a) };
+    }).sort((a, b) => b.score - a.score || a.box[1] - b.box[1] || a.box[0] - b.box[0]);
+    const result = [rank(.08, .8)[0].box];
+    for (const entry of rank(.012, .18)) {
+      if (result.some(b => iou(b, entry.box) > .34)) continue;
+      result.push(entry.box);
+      if (result.length === 5) break;
+    }
+    for (const b of fallback(w, h).slice(1)) {
+      if (result.length >= 5) break;
+      if (!result.some(a => iou(a, b) > .6)) result.push(b);
+    }
+    // Pixel-sized inputs can have fewer distinct rectangles; still return a stable result.
+    while (result.length < 3) result.push(fallback(w, h)[result.length]);
+    return result;
+  }
+  function detect(image) {
+    const w = Math.max(1, Math.round(Number(image && image.width) || 1));
+    const h = Math.max(1, Math.round(Number(image && image.height) || 1));
+    try { return analyze({ width: w, height: h, data: image && image.data }); }
+    catch (_) { return fallback(w, h); }
+  }
+  root.ObserverDetector = { detect, fit, fallback };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+    "use strict";
+    const upload = document.getElementById("upload");
+    const dropZone = document.getElementById("dropZone");
+    const original = document.getElementById("original");
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+    const originalPlaceholder = document.getElementById("originalPlaceholder");
+    const outputPlaceholder = document.getElementById("outputPlaceholder");
+    let generation = 0;
+
+    function clearImages() {
+      for (const canvas of [original, output]) {
+        canvas.hidden = true;
+        canvas.width = canvas.height = 1;
+      }
+      delete output.dataset.boxes;
+      originalPlaceholder.hidden = outputPlaceholder.hidden = false;
+    }
+
+    function message(text, state) {
+      status.textContent = text;
+      status.dataset.state = state;
+    }
+
+    async function showImage(file) {
+      const current = ++generation;
+      clearImages();
+      if (!file) {
+        message("请选择一张图片。", "empty");
+        return;
+      }
+      message("正在分析图片…", "loading");
+      let objectURL;
+      try {
+        // Inspect file signatures instead of trusting an extension or MIME type.
+        const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+        const jpeg = header[0] === 255 && header[1] === 216 && header[2] === 255;
+        const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+        const png = pngSignature.every((value, index) => header[index] === value);
+        if (!jpeg && !png) throw new Error("请使用完整的 JPG 或 PNG 图片。");
+        objectURL = URL.createObjectURL(file);
+        const image = new Image();
+        image.src = objectURL;
+        // Current Chrome / Edge apply JPEG EXIF orientation during decoding.
+        await image.decode();
+        if (current !== generation) return;
+        const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        original.width = output.width = width;
+        original.height = output.height = height;
+        const sourceContext = original.getContext("2d", { willReadFrequently: true });
+        // White composite prevents invisible RGB pixels in transparent PNGs
+        // from affecting detection and keeps both previews identical.
+        sourceContext.fillStyle = "#fff";
+        sourceContext.fillRect(0, 0, width, height);
+        sourceContext.imageSmoothingQuality = "high";
+        sourceContext.drawImage(image, 0, 0, width, height);
+
+        let boxes;
+        try {
+          const analysis = document.createElement("canvas");
+          const analysisScale = Math.min(1, 480 / Math.max(width, height));
+          analysis.width = Math.max(1, Math.round(width * analysisScale));
+          analysis.height = Math.max(1, Math.round(height * analysisScale));
+          const context = analysis.getContext("2d", { willReadFrequently: true });
+          context.drawImage(original, 0, 0, analysis.width, analysis.height);
+          boxes = ObserverDetector.detect(context.getImageData(0, 0, analysis.width, analysis.height))
+            .map((box, index) => ObserverDetector.fit(
+              [box[0] * width / analysis.width, box[1] * height / analysis.height,
+               box[2] * width / analysis.width, box[3] * height / analysis.height],
+              width, height, index === 0 ? 0.08 : 0.008, index === 0 ? 0.8 : 0.14));
+        } catch (error) {
+          console.warn("Using the stable detection fallback.", error);
+          boxes = ObserverDetector.fallback(width, height);
+        }
+        const resultContext = output.getContext("2d");
+        resultContext.drawImage(original, 0, 0);
+        resultContext.fillStyle = "rgb(0, 80, 255)";
+        const stroke = Math.min(width, height) >= 120 ? 2 : 1;
+        for (const [x1, y1, x2, y2] of boxes) {
+          // Filled bands keep thin lines sharp, including on 1-pixel images.
+          const line = Math.min(stroke, x2 - x1, y2 - y1);
+          resultContext.fillRect(x1, y1, x2 - x1, line);
+          resultContext.fillRect(x1, y2 - line, x2 - x1, line);
+          resultContext.fillRect(x1, y1, line, y2 - y1);
+          resultContext.fillRect(x2 - line, y1, line, y2 - y1);
+        }
+        output.dataset.boxes = JSON.stringify(boxes);
+        original.hidden = output.hidden = false;
+        originalPlaceholder.hidden = outputPlaceholder.hidden = true;
+        message(`${file.name} · ${width} × ${height} · 完成`, "done");
+      } catch (error) {
+        if (current !== generation) return;
+        clearImages();
+        message(error.message.includes("JPG") ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。", "error");
+      } finally {
+        if (objectURL) URL.revokeObjectURL(objectURL);
+      }
+    }
+
+    upload.addEventListener("change", () => showImage(upload.files[0]));
+    // Reset just the picker so selecting the same file again triggers analysis.
+    upload.addEventListener("click", () => { upload.value = ""; });
+    for (const eventName of ["dragenter", "dragover"]) {
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        dropZone.classList.add("dragging");
+      });
+    }
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
+    dropZone.addEventListener("drop", event => {
+      event.preventDefault();
+      dropZone.classList.remove("dragging");
+      showImage(event.dataTransfer.files[0]);
+    });
+  </script>
+</body>
+</html>

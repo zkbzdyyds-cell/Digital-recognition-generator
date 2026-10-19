@@ -1,5 +1,21 @@
 # image-observer-v1 — Detection Build 01
 
+## 直接打开 HTML（无需安装）
+
+**只想查看并使用工具，请下载 `image-observer-v1.html` 这一个文件。**
+
+1. 在 GitHub 的 `build-01` 分支打开 `image-observer-v1.html`，点击文件右上角 **Download raw file**（下载箭头）。
+2. 保存后，用 Chrome 或 Edge 双击打开这个 `.html` 文件；无需解压整个项目、安装 Python、执行命令或启动服务器。
+3. 点击上传区或拖入一张 JPG / PNG，页面会显示原图和蓝色矩形输出图。
+
+HTML 内已包含全部样式和检测逻辑，可以断网使用，不加载 CDN、在线 API、模型或外部资源。图片留在当前浏览器中。结果图可以右键另存为图片。
+
+这个入口用浏览器原生 JavaScript / Canvas 实现 CPU 图像分析，以支持直接打开文件。它是 Build 01 的独立浏览器实现，不依赖 Python / Gradio 服务；框的位置与下面的 Python 实现不要求逐像素相同。功能仍只有 Detection Build 01：原比例缩放至最长边 1600px、1 个主框和 2–4 个辅助框、结构依据、面积和形状约束、稳定 fallback、统一蓝色细线。
+
+浏览器版已在 Chromium 断网状态下加载完整 HTML 内容进行验证：两张示例、重复输入、1600px 缩放、透明图、1px 小图、EXIF 方向、异常回退及窄屏布局均通过，未发起 HTTP 请求。未在 Windows 主机上实测。
+
+## Python / Gradio 版本
+
 本地 CPU 图像效果原型。上传 JPG / PNG 后自动生成 **1 个 Main Box + 2–4 个 Auxiliary Boxes**，统一使用高饱和蓝色细线；不绘制文字。这里的矩形表达图像信息分布，不是物体识别结果。
 
 仅使用 Python、Gradio、OpenCV、Pillow、NumPy。不调用在线 API，不下载模型，不使用 GPU / CUDA。首次安装依赖需要联网，安装完成后运行与处理图片不需要互联网；Gradio 遥测与公开分享已关闭。
@@ -68,6 +84,7 @@
 ## 文件
 
 ```text
+image-observer-v1.html # 可独立、离线打开的完整浏览器版本
 app.py             # 上传校验与本地 Gradio 页面
 processor.py       # 缩放、结构分析、矩形选择与绘制
 requirements.txt   # 已验证的直接依赖版本
