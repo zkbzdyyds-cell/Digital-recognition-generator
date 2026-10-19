@@ -1,7 +1,7 @@
-"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 01.1.
+"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.
 
 The rectangles describe visual information, not recognized objects. No model,
-network access, or random sampling is used.
+network access, or global random state is used.
 """
 
 import logging
@@ -336,12 +336,134 @@ def detect_boxes(image: Image.Image) -> list[Box]:
         return _fallback_boxes(width, height)
 
 
-def process_image(image: Image.Image) -> Image.Image:
-    """Resize, analyze, and draw the Build 01.1 blue outlines on a copy of the image."""
+def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) -> list[Box]:
+    """Build a shared, seeded detail sequence, independent of Structure.
+
+    Five information peaks become small clusters. Weighted sampling stays local
+    to those peaks and is gated by subject confidence, rather than spreading
+    random rectangles over the whole frame.
+    """
+    mx1, my1, mx2, my2 = main
+    mw, mh = mx2 - mx1, my2 - my1
+    if min(image.size) < 32 or min(mw, mh) < 20 or not medium:
+        return []
+    small = resize_image(image, ANALYSIS_SIZE)
+    rgb = np.asarray(small)
+    if int(np.ptp(rgb, axis=(0, 1)).max()) == 0:
+        return []
+    information, subject = _information_map(rgb), _subject_map(rgb)
+    weights = information ** 1.3 * (0.05 + 0.95 * subject ** 1.4)
+    if float(weights.max()) < 1e-6:
+        return []
+
+    # Keep complete micro rectangles inside this subject-local expanded region.
+    roi = (max(0, math.floor(mx1 - 0.15 * mw)), max(0, math.floor(my1 - 0.15 * mh)),
+           min(image.width, math.ceil(mx2 + 0.15 * mw)),
+           min(image.height, math.ceil(my2 + 0.15 * mh)))
+    sx, sy = image.width / small.width, image.height / small.height
+    ax1, ay1 = max(0, math.floor(roi[0] / sx)), max(0, math.floor(roi[1] / sy))
+    ax2, ay2 = min(small.width, math.ceil(roi[2] / sx)), min(small.height, math.ceil(roi[3] / sy))
+    # Nearby features may extend past a main edge. Features outside both axes
+    # receive less weight, which avoids pulling a whole cluster into a corner of
+    # the expanded background while retaining adjoining horns, hands, or edges.
+    xs, ys = (np.arange(small.width) + 0.5) * sx, (np.arange(small.height) + 0.5) * sy
+    weights *= np.where((xs >= mx1) & (xs <= mx2), 1.0, 0.35)[None, :]
+    weights *= np.where((ys >= my1) & (ys <= my2), 1.0, 0.35)[:, None]
+    local = np.zeros_like(weights)
+    local[ay1:ay2, ax1:ax2] = weights[ay1:ay2, ax1:ax2]
+    peak_limit = float(local.max())
+    if peak_limit < 1e-6:
+        return []
+
+    # A local LCG makes repeatability explicit and easy to reproduce in the
+    # offline browser preview. It never changes NumPy/Python global RNG state.
+    state = int(seed) & 0xFFFFFFFF
+
+    def random_value() -> float:
+        nonlocal state
+        state = (1664525 * state + 1013904223) & 0xFFFFFFFF
+        return state / 4294967296
+
+    radius_x = max(1, round(0.13 * mw / sx))
+    radius_y = max(1, round(0.13 * mh / sy))
+    sample_x = max(1, round(0.065 * mw / sx))
+    sample_y = max(1, round(0.065 * mh / sy))
+    peaks = local.copy()
+    clusters = []
+    for _ in range(5):
+        _, value, _, (x, y) = cv2.minMaxLoc(peaks)
+        if value < peak_limit * 0.08:
+            break
+        left, top = max(ax1, x - sample_x), max(ay1, y - sample_y)
+        right, bottom = min(ax2, x + sample_x + 1), min(ay2, y + sample_y + 1)
+        distribution = np.cumsum(local[top:bottom, left:right].ravel(), dtype=np.float64)
+        if distribution.size and distribution[-1] > 0:
+            clusters.append((left, top, right - left, distribution))
+        peaks[max(ay1, y - radius_y):min(ay2, y + radius_y + 1),
+              max(ax1, x - radius_x):min(ax2, x + radius_x + 1)] = 0
+    if not clusters:
+        return []
+
+    area_limit = min((box[2] - box[0]) * (box[3] - box[1]) for box in medium) * 0.25
+    if area_limit < 4:
+        return []
+    selected: list[Box] = []
+    # Rejected duplicates do not change the Structure relationship: all values
+    # still take a prefix of exactly this same seed-conditioned sequence.
+    for attempt in range(180):
+        left, top, span, distribution = clusters[attempt % len(clusters)]
+        index = min(int(np.searchsorted(distribution, random_value() * distribution[-1], side="right")),
+                    len(distribution) - 1)
+        center_x = (left + index % span + 0.5) * sx
+        center_y = (top + index // span + 0.5) * sy
+        area = min(mw * mh * (0.0025 + 0.0095 * random_value()), area_limit)
+        aspect = math.exp(math.log(0.55) + random_value() * math.log(2.3 / 0.55))
+        bw = max(2, min(roi[2] - roi[0], round(math.sqrt(area * aspect))))
+        bh = max(2, min(roi[3] - roi[1], round(math.sqrt(area / aspect))))
+        while bw * bh > area_limit and (bw > 2 or bh > 2):
+            if bw >= bh and bw > 2:
+                bw -= 1
+            else:
+                bh -= 1
+        x1 = max(roi[0], min(roi[2] - bw, round(center_x - bw / 2)))
+        y1 = max(roi[1], min(roi[3] - bh, round(center_y - bh / 2)))
+        box = (x1, y1, x1 + bw, y1 + bh)
+        if all(_intersection_over_union(box, previous) < 0.72 for previous in selected):
+            selected.append(box)
+        if len(selected) == 30:
+            break
+    return selected
+
+
+def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0) -> dict[str, list[Box]]:
+    """Return the unchanged main, 2–5 medium boxes, and 0–30 local micro boxes.
+
+    Structure controls layer density only. Seed controls micro variations only;
+    both leave the Build 01.1 main-box algorithm and its location untouched.
+    """
+    boxes = detect_boxes(image)
+    value = float(structure)
+    value = min(100.0, max(0.0, value)) if math.isfinite(value) else 45.0
+    medium_count = 2 + math.floor(3 * value / 100 + 0.5)
+    medium = boxes[1:1 + medium_count]
+    micro_count = math.floor(30 * (value / 100) ** 1.35 + 0.5)
+    micro: list[Box] = []
+    if micro_count:
+        try:
+            micro = _micro_boxes(image, boxes[0], boxes[1:], seed)[:micro_count]
+        except Exception:
+            _LOGGER.warning("Detail analysis failed; retaining main and medium layers.", exc_info=True)
+    return {"main": [boxes[0]], "medium": medium, "micro": micro}
+
+
+def process_image(image: Image.Image, structure: float = 45, seed: int = 0) -> Image.Image:
+    """Draw the fixed-blue main, medium, and micro layers on a resized copy."""
     result = resize_image(image)
-    boxes = detect_boxes(result)
+    layers = detect_layers(result, structure, seed)
     draw = ImageDraw.Draw(result)
     line_width = 2 if min(result.size) >= 120 else 1
-    for x1, y1, x2, y2 in boxes:
-        draw.rectangle((x1, y1, x2 - 1, y2 - 1), outline=BOX_COLOR, width=line_width)
+    for name, boxes in layers.items():
+        for x1, y1, x2, y2 in boxes:
+            draw.rectangle((x1, y1, x2 - 1, y2 - 1), outline=BOX_COLOR,
+                           width=1 if name == "micro" else line_width)
     return result

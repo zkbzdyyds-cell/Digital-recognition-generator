@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>image-observer-v1 · Detection Build 01</title>
+  <title>image-observer-v1 · Detection Build 02</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
     * { box-sizing: border-box; }
@@ -24,6 +24,9 @@
     .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
     #status { min-height: 32px; margin: 10px 0 5px; font-size: 12px; color: #687586; line-height: 1.7; overflow-wrap: anywhere; }
     #status[data-state="error"] { color: #b42c34; }
+    .structure { display: grid; grid-template-columns: auto 1fr 28px; gap: 14px; align-items: center; margin: 18px 0 0; font-size: 13px; }
+    .structure input { min-width: 0; width: 100%; accent-color: #0050ff; }
+    .structure output { text-align: right; color: #687586; font-variant-numeric: tabular-nums; }
     .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .panel { min-width: 0; border: 1px solid #dfe4eb; border-radius: 10px; background: #fff; overflow: hidden; }
     h2 { margin: 0; padding: 16px 19px; font-size: 13px; font-weight: 550; border-bottom: 1px solid #edf0f4; }
@@ -44,7 +47,7 @@
   <main>
     <header>
       <h1>image-observer<span class="version">v1</span></h1>
-      <span class="build">Detection · Build 01</span>
+      <span class="build">Detection · Build 02</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
     <label class="upload" id="dropZone" for="upload">
@@ -53,6 +56,7 @@
       <span>JPG / PNG · 最长边不超过 1600px · 无需联网</span>
       <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
     </label>
+    <label class="structure" for="structure"><span>Structure</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
     <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
     <div class="panels">
       <section class="panel" aria-labelledby="originalLabel">
@@ -72,7 +76,7 @@
     </div>
   </main>
   <script>
-/* Detection Build 01.1: local, deterministic CPU image analysis; no models or network. */
+/* Detection Build 02: local, deterministic CPU image analysis; no models or network. */
 (function (root) {
   'use strict';
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -253,7 +257,7 @@
   }
   function compareBoxes(a, b) { for (let i = 0; i < 4; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; }
   function unique(boxes) { return [...new Map(boxes.map(box => [box.join(','), box])).values()]; }
-  function analyze(image) {
+  function analyze(image, capture) {
     const w = image.width, h = image.height, n = w*h, rgba = image.data;
     if (w<3 || h<3 || !rgba || rgba.length<n*4) return fallback(w,h);
     const channels = [new Float32Array(n), new Float32Array(n), new Float32Array(n)], gray = new Float32Array(n);
@@ -266,6 +270,7 @@
     }
     if (Math.max(...sums.map((value,c) => Math.sqrt(Math.max(0,squares[c]/n-(value/n)**2)))) < .05/255) return fallback(w,h);
     const subject = subjectMap(channels,gray,w,h), fine = informationMap(channels,gray,w,h);
+    if (capture) { capture.subject = subject; capture.detail = fine; }
     const info = Float32Array.from(subject,(value,i) => .97*value+.03*fine[i]*value);
     const total = info.reduce((a,b)=>a+b,0);
     if (total<1e-4) return fallback(w,h);
@@ -355,7 +360,83 @@
     try { return analyze({width:w,height:h,data:image && image.data}); }
     catch (_) { return fallback(w,h); }
   }
-  root.ObserverDetector = { detect, fit, fallback };
+  // Build 02 layers reuse the Build 01.1 base; Structure only changes prefixes.
+  const layerCache = new WeakMap();
+  function microBoxes(frame, seed) {
+    const { width:w, height:h, boxes, subject, detail } = frame;
+    const main = boxes[0], mw = main[2]-main[0], mh = main[3]-main[1];
+    if (!subject || !detail || Math.min(w,h)<32 || mw<20 || mh<20) return [];
+    const roi = [Math.max(0,Math.floor(main[0]-.15*mw)),Math.max(0,Math.floor(main[1]-.15*mh)),
+      Math.min(w,Math.ceil(main[2]+.15*mw)),Math.min(h,Math.ceil(main[3]+.15*mh))];
+    const weights = new Float32Array(w*h);
+    let total = 0;
+    for (let y=roi[1];y<roi[3];y++) for (let x=roi[0];x<roi[2];x++) {
+      const i=y*w+x;
+      const affinity=(x<main[0]||x>=main[2]?.35:1)*(y<main[1]||y>=main[3]?.35:1);
+      weights[i] = detail[i]**1.3*(.05+.95*subject[i]**1.4)*affinity; total += weights[i];
+    }
+    if (total<1e-5) return [];
+    const peaks = Float32Array.from(weights), anchors = [];
+    let strongest = 0; for (const value of weights) strongest = Math.max(strongest,value);
+    const nx = Math.max(1,Math.round(.13*mw)), ny = Math.max(1,Math.round(.13*mh));
+    for (let p=0;p<5;p++) {
+      let index = 0;
+      for (let i=1;i<peaks.length;i++) if (peaks[i]>peaks[index]) index=i;
+      if (peaks[index]<Math.max(1e-7,.08*strongest)) break;
+      const x=index%w,y=Math.floor(index/w); anchors.push([x,y]);
+      for (let yy=Math.max(roi[1],y-ny);yy<Math.min(roi[3],y+ny+1);yy++)
+        peaks.fill(0,yy*w+Math.max(roi[0],x-nx),yy*w+Math.min(roi[2],x+nx+1));
+    }
+    if (!anchors.length) return [];
+    // Local weighted sampling creates clusters around image details, not frame-wide noise.
+    const rx=Math.max(1,Math.round(.065*mw)),ry=Math.max(1,Math.round(.065*mh));
+    const neighborhoods=anchors.map(([cx,cy])=>{
+      const indices=[],cdf=[];let mass=0;
+      for(let y=Math.max(roi[1],cy-ry);y<Math.min(roi[3],cy+ry+1);y++)
+        for(let x=Math.max(roi[0],cx-rx);x<Math.min(roi[2],cx+rx+1);x++) {
+          const i=y*w+x;mass+=weights[i];indices.push(i);cdf.push(mass);
+        }
+      return {indices,cdf,mass};
+    });
+    let state=Number(seed)>>>0;
+    const random=()=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return state/4294967296;};
+    const mediumMin=Math.min(...boxes.slice(1).map(area));
+    const maximum=Math.min(.012*mw*mh,.25*mediumMin);
+    if(maximum<4) return [];
+    const result=[];
+    for(let i=0;i<180 && result.length<30;i++) {
+      const local=neighborhoods[i%neighborhoods.length], target=random()*local.mass;
+      let low=0,high=local.cdf.length-1;
+      while(low<high){const mid=(low+high)>>1;if(local.cdf[mid]<=target)low=mid+1;else high=mid;}
+      const index=local.indices[low],cx=index%w,cy=Math.floor(index/w);
+      const size=Math.min((.0025+.0095*random())*mw*mh,maximum),aspect=Math.exp(Math.log(.55)+random()*Math.log(2.3/.55));
+      let bw=Math.max(2,Math.min(roi[2]-roi[0],Math.round(Math.sqrt(size*aspect))));
+      let bh=Math.max(2,Math.min(roi[3]-roi[1],Math.round(Math.sqrt(size/aspect))));
+      while(bw*bh>maximum && (bw>2 || bh>2)) { if(bw>=bh && bw>2)bw--;else if(bh>2)bh--;else bw--; }
+      const x=clamp(Math.round(cx-bw/2),roi[0],roi[2]-bw),y=clamp(Math.round(cy-bh/2),roi[1],roi[3]-bh);
+      const box=[x,y,x+bw,y+bh];
+      if(result.every(previous=>iou(box,previous)<.72))result.push(box);
+    }
+    return result;
+  }
+  function layers(image, structure=45, seed=0) {
+    const w=Math.max(1,Math.round(Number(image&&image.width)||1));
+    const h=Math.max(1,Math.round(Number(image&&image.height)||1));
+    const amount=clamp(Number(structure)||0,0,100), key=Number(seed)>>>0;
+    let frame=image&&typeof image==='object'?layerCache.get(image):null;
+    if(!frame){
+      frame={width:w,height:h,micro:new Map()};
+      try {frame.boxes=analyze({width:w,height:h,data:image&&image.data},frame);}
+      catch (_) {frame.boxes=fallback(w,h);}
+      if(image&&typeof image==='object')layerCache.set(image,frame);
+    }
+    if(!frame.micro.has(key))frame.micro.set(key,microBoxes(frame,key));
+    const copy=b=>b.slice();
+    return {main:[copy(frame.boxes[0])],
+      medium:frame.boxes.slice(1,1+2+Math.round(3*amount/100)).map(copy),
+      micro:frame.micro.get(key).slice(0,Math.round(30*(amount/100)**1.35)).map(copy)};
+  }
+  root.ObserverDetector = { detect, fit, fallback, layers };
 })(typeof window !== 'undefined' ? window : globalThis);
 
   </script>
@@ -368,20 +449,72 @@
     const status = document.getElementById("status");
     const originalPlaceholder = document.getElementById("originalPlaceholder");
     const outputPlaceholder = document.getElementById("outputPlaceholder");
-    let generation = 0;
+    const structure = document.getElementById("structure");
+    const structureValue = document.getElementById("structureValue");
+    let generation = 0, retained = null, structureTimer;
 
     function clearImages() {
+      clearTimeout(structureTimer);
+      retained = null;
       for (const canvas of [original, output]) {
         canvas.hidden = true;
         canvas.width = canvas.height = 1;
       }
       delete output.dataset.boxes;
+      delete output.dataset.layers;
+      delete output.dataset.structure;
       originalPlaceholder.hidden = outputPlaceholder.hidden = false;
     }
 
     function message(text, state) {
       status.textContent = text;
       status.dataset.state = state;
+    }
+
+    function renderOutput() {
+      if (!retained) return;
+      const {data, width, height} = retained, amount = Number(structure.value);
+      let result;
+      try {
+        const detected = data ? ObserverDetector.layers(data, amount, 0) : null;
+        if (!detected) throw new Error("Analysis unavailable");
+        const sx = width / data.width, sy = height / data.height;
+        const scale = (box, kind) => {
+          const b = [box[0]*sx,box[1]*sy,box[2]*sx,box[3]*sy];
+          if (kind !== "micro") return ObserverDetector.fit(b,width,height,
+            kind === "main" ? .08 : .008,kind === "main" ? .8 : .14);
+          const x1 = Math.max(0,Math.min(width-1,Math.round(b[0])));
+          const y1 = Math.max(0,Math.min(height-1,Math.round(b[1])));
+          return [x1,y1,Math.max(x1+1,Math.min(width,Math.round(b[2]))),
+            Math.max(y1+1,Math.min(height,Math.round(b[3])))];
+        };
+        result = Object.fromEntries(["main","medium","micro"].map(kind =>
+          [kind,detected[kind].map(box => scale(box,kind))]));
+      } catch (error) {
+        console.warn("Using the stable detection fallback.", error);
+        const boxes = ObserverDetector.fallback(width,height);
+        result = {main:boxes.slice(0,1),medium:boxes.slice(1),micro:[]};
+      }
+      const context = output.getContext("2d");
+      context.drawImage(original,0,0);
+      context.fillStyle = "rgb(0, 80, 255)";
+      function draw(boxes, stroke) {
+        for (const [x1,y1,x2,y2] of boxes) {
+          const line = Math.min(stroke,x2-x1,y2-y1);
+          context.fillRect(x1,y1,x2-x1,line);
+          context.fillRect(x1,y2-line,x2-x1,line);
+          context.fillRect(x1,y1,line,y2-y1);
+          context.fillRect(x2-line,y1,line,y2-y1);
+        }
+      }
+      draw(result.main,Math.min(width,height)>=120?2:1);
+      draw(result.medium,1);
+      draw(result.micro,1);
+      output.dataset.layers = JSON.stringify(result);
+      output.dataset.structure = String(amount);
+      output.dataset.boxes = JSON.stringify([...result.main,...result.medium,...result.micro]);
+      original.hidden = output.hidden = false;
+      originalPlaceholder.hidden = outputPlaceholder.hidden = true;
     }
 
     async function showImage(file) {
@@ -395,10 +528,11 @@
       let objectURL;
       try {
         // Inspect file signatures instead of trusting an extension or MIME type.
-        const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-        const jpeg = header[0] === 255 && header[1] === 216 && header[2] === 255;
-        const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
-        const png = pngSignature.every((value, index) => header[index] === value);
+        const header = new Uint8Array(await file.slice(0,12).arrayBuffer());
+        if (current !== generation) return;
+        const jpeg = header[0]===255 && header[1]===216 && header[2]===255;
+        const pngSignature = [137,80,78,71,13,10,26,10];
+        const png = pngSignature.every((value,index) => header[index]===value);
         if (!jpeg && !png) throw new Error("请使用完整的 JPG 或 PNG 图片。");
         objectURL = URL.createObjectURL(file);
         const image = new Image();
@@ -406,72 +540,56 @@
         // Current Chrome / Edge apply JPEG EXIF orientation during decoding.
         await image.decode();
         if (current !== generation) return;
-        const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
-        const width = Math.max(1, Math.round(image.naturalWidth * scale));
-        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const scale = Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));
+        const width = Math.max(1,Math.round(image.naturalWidth*scale));
+        const height = Math.max(1,Math.round(image.naturalHeight*scale));
         original.width = output.width = width;
         original.height = output.height = height;
-        const sourceContext = original.getContext("2d", { willReadFrequently: true });
-        // White composite prevents invisible RGB pixels in transparent PNGs
-        // from affecting detection and keeps both previews identical.
+        const sourceContext = original.getContext("2d",{willReadFrequently:true});
         sourceContext.fillStyle = "#fff";
-        sourceContext.fillRect(0, 0, width, height);
+        sourceContext.fillRect(0,0,width,height);
         sourceContext.imageSmoothingQuality = "high";
-        sourceContext.drawImage(image, 0, 0, width, height);
-
-        let boxes;
+        sourceContext.drawImage(image,0,0,width,height);
+        let data = null;
         try {
           const analysis = document.createElement("canvas");
-          const analysisScale = Math.min(1, 480 / Math.max(width, height));
-          analysis.width = Math.max(1, Math.round(width * analysisScale));
-          analysis.height = Math.max(1, Math.round(height * analysisScale));
-          const context = analysis.getContext("2d", { willReadFrequently: true });
-          context.drawImage(original, 0, 0, analysis.width, analysis.height);
-          boxes = ObserverDetector.detect(context.getImageData(0, 0, analysis.width, analysis.height))
-            .map((box, index) => ObserverDetector.fit(
-              [box[0] * width / analysis.width, box[1] * height / analysis.height,
-               box[2] * width / analysis.width, box[3] * height / analysis.height],
-              width, height, index === 0 ? 0.08 : 0.008, index === 0 ? 0.8 : 0.14));
-        } catch (error) {
-          console.warn("Using the stable detection fallback.", error);
-          boxes = ObserverDetector.fallback(width, height);
-        }
-        const resultContext = output.getContext("2d");
-        resultContext.drawImage(original, 0, 0);
-        resultContext.fillStyle = "rgb(0, 80, 255)";
-        const stroke = Math.min(width, height) >= 120 ? 2 : 1;
-        for (const [x1, y1, x2, y2] of boxes) {
-          // Filled bands keep thin lines sharp, including on 1-pixel images.
-          const line = Math.min(stroke, x2 - x1, y2 - y1);
-          resultContext.fillRect(x1, y1, x2 - x1, line);
-          resultContext.fillRect(x1, y2 - line, x2 - x1, line);
-          resultContext.fillRect(x1, y1, line, y2 - y1);
-          resultContext.fillRect(x2 - line, y1, line, y2 - y1);
-        }
-        output.dataset.boxes = JSON.stringify(boxes);
-        original.hidden = output.hidden = false;
-        originalPlaceholder.hidden = outputPlaceholder.hidden = true;
-        message(`${file.name} · ${width} × ${height} · 完成`, "done");
+          const analysisScale = Math.min(1,480/Math.max(width,height));
+          analysis.width = Math.max(1,Math.round(width*analysisScale));
+          analysis.height = Math.max(1,Math.round(height*analysisScale));
+          const context = analysis.getContext("2d",{willReadFrequently:true});
+          context.drawImage(original,0,0,analysis.width,analysis.height);
+          data = context.getImageData(0,0,analysis.width,analysis.height);
+        } catch (error) { console.warn("Using the stable detection fallback.",error); }
+        retained = {data,width,height};
+        // Read the current slider after decoding; pending uploads use its latest value.
+        renderOutput();
+        message(`${file.name} · ${width} × ${height} · 完成`,"done");
       } catch (error) {
         if (current !== generation) return;
         clearImages();
-        message(error.message.includes("JPG") ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。", "error");
+        message(error.message.includes("JPG") ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。","error");
       } finally {
         if (objectURL) URL.revokeObjectURL(objectURL);
       }
     }
 
-    upload.addEventListener("change", () => showImage(upload.files[0]));
+    structure.addEventListener("input",() => {
+      structureValue.value = structure.value;
+      structureValue.textContent = structure.value;
+      clearTimeout(structureTimer);
+      structureTimer = setTimeout(renderOutput,80);
+    });
+    upload.addEventListener("change",() => showImage(upload.files[0]));
     // Reset just the picker so selecting the same file again triggers analysis.
-    upload.addEventListener("click", () => { upload.value = ""; });
-    for (const eventName of ["dragenter", "dragover"]) {
-      dropZone.addEventListener(eventName, event => {
+    upload.addEventListener("click",() => { upload.value = ""; });
+    for (const eventName of ["dragenter","dragover"]) {
+      dropZone.addEventListener(eventName,event => {
         event.preventDefault();
         dropZone.classList.add("dragging");
       });
     }
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
-    dropZone.addEventListener("drop", event => {
+    dropZone.addEventListener("dragleave",() => dropZone.classList.remove("dragging"));
+    dropZone.addEventListener("drop",event => {
       event.preventDefault();
       dropZone.classList.remove("dragging");
       showImage(event.dataTransfer.files[0]);
