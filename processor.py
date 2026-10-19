@@ -1,4 +1,4 @@
-"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 01.
+"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 01.1.
 
 The rectangles describe visual information, not recognized objects. No model,
 network access, or random sampling is used.
@@ -88,17 +88,24 @@ def _fit_box(
 
 
 def _fallback_boxes(width: int, height: int) -> list[Box]:
-    """A balanced layout for flat images, tiny images, and analysis failures."""
-    layouts = [
-        (0.22, 0.22, 0.78, 0.78),
-        (0.08, 0.12, 0.31, 0.36),
-        (0.69, 0.64, 0.92, 0.88),
-    ]
+    """A stable layout whose fallback details stay inside its main rectangle."""
+    main = _fit_box((0.22 * width, 0.22 * height, 0.78 * width, 0.78 * height),
+                    width, height, 0.08, 0.80)
+    return [main, *_detail_fallback(main, width, height)[:2]]
+
+
+def _detail_fallback(main: Box, width: int, height: int) -> list[Box]:
+    """Supply deterministic local windows, never unrelated frame corners."""
+    left, top, right, bottom = main
+    mw, mh = right - left, bottom - top
+    layouts = [(0.08, 0.10, 0.52, 0.54), (0.47, 0.46, 0.92, 0.91),
+               (0.48, 0.08, 0.91, 0.51), (0.09, 0.48, 0.52, 0.91)]
     return [
-        _fit_box((a * width, b * height, c * width, d * height),
-                 width, height, 0.08 if index == 0 else 0.008,
-                 0.80 if index == 0 else 0.14)
-        for index, (a, b, c, d) in enumerate(layouts)
+        tuple(value + (left if index % 2 == 0 else top)
+              for index, value in enumerate(_fit_box(
+                  (a * mw, b * mh, c * mw, d * mh), mw, mh,
+                  min(0.008 * width * height / max(mw * mh, 1), 0.4), 0.65)))
+        for a, b, c, d in layouts
     ]
 
 
@@ -128,6 +135,61 @@ def _information_map(rgb: np.ndarray) -> np.ndarray:
     return cv2.GaussianBlur(information, (0, 0), 2)
 
 
+def _box_blur(values: np.ndarray, radius: int) -> np.ndarray:
+    return cv2.blur(values, (2 * radius + 1, 2 * radius + 1),
+                    borderType=cv2.BORDER_REPLICATE)
+
+
+def _subject_map(rgb: np.ndarray) -> np.ndarray:
+    """Coherent color novelty, with texture and almost-black background gates.
+
+    Compare color populations inside the image with those on its border. This
+    is a background prior, not a skin/color classifier, and follows off-center
+    subjects. Coarse contrast preserves subjects whose colors also touch an edge.
+    """
+    height, width = rgb.shape[:2]
+    side = min(width, height)
+    colors = rgb.astype(np.float32) / 255
+    small = _box_blur(colors, max(1, round(side * 0.015)))
+    broad = _box_blur(colors, max(2, round(side * 0.12)))
+    gray = colors @ np.array([0.299, 0.587, 0.114], np.float32)
+    small_gray = small @ np.array([0.299, 0.587, 0.114], np.float32)
+
+    # Smooth the tiny RGB histogram in color space to avoid bin-edge jumps.
+    indices = np.minimum((small * 8).astype(np.int32), 7)
+    encoded = indices[:, :, 0] * 64 + indices[:, :, 1] * 8 + indices[:, :, 2]
+    border = max(1, round(side * 0.06))
+    border_mask = np.zeros((height, width), bool)
+    border_mask[:border] = border_mask[-border:] = True
+    border_mask[:, :border] = border_mask[:, -border:] = True
+
+    def histogram(values: np.ndarray) -> np.ndarray:
+        hist = np.bincount(values.ravel(), minlength=512).reshape(8, 8, 8).astype(np.float32)
+        hist /= max(values.size, 1)
+        for axis in range(3):
+            padded = np.pad(hist, [(1, 1) if a == axis else (0, 0) for a in range(3)], mode="edge")
+            slices = [slice(None)] * 3
+            parts = []
+            for offset in range(3):
+                slices[axis] = slice(offset, offset + 8)
+                parts.append(padded[tuple(slices)])
+            hist = (parts[0] + 2 * parts[1] + parts[2]) * 0.25
+        return hist.ravel()
+
+    all_density = histogram(encoded)[encoded]
+    border_density = histogram(encoded[border_mask])[encoded]
+    novelty = np.clip((all_density - 1.15 * border_density) / (all_density + 0.002), 0, 1)
+    coarse = np.linalg.norm(small - broad, axis=2) / math.sqrt(3)
+    global_contrast = np.linalg.norm(small - small.mean(axis=(0, 1)), axis=2) / math.sqrt(3)
+    fine = _box_blur(np.abs(gray - small_gray), max(1, round(side * 0.012)))
+    texture_gate = 1 / (1 + 1.8 * fine / (0.025 + coarse))
+    dark_gate = 0.08 + 0.92 * np.clip((small_gray - 0.025) / 0.14, 0, 1)
+    confidence = (0.60 * novelty + 0.25 * _normalized(coarse)
+                  + 0.15 * _normalized(global_contrast)) * texture_gate * dark_gate
+    confidence = _box_blur(confidence, max(1, round(side * 0.018)))
+    return _normalized(confidence)
+
+
 def _intersection_over_union(a: Box, b: Box) -> float:
     intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
         0, min(a[3], b[3]) - max(a[1], b[1]))
@@ -138,34 +200,37 @@ def _intersection_over_union(a: Box, b: Box) -> float:
 
 def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
     height, width = rgb.shape[:2]
-    information = _information_map(rgb)
+    if width < 3 or height < 3 or float(np.std(rgb.astype(np.float32), axis=(0, 1)).max()) < 0.05:
+        return _fallback_boxes(width, height)
+    subject = _subject_map(rgb)
+    # Fine structure can support a coherent region, but cannot win by density.
+    information = 0.97 * subject + 0.03 * _information_map(rgb) * subject
     if float(information.max()) < 1e-5 or float(information.sum()) < 1e-4:
         return _fallback_boxes(width, height)
-
     candidates: list[tuple[float, float, float, float]] = []
-    # Multiple thresholds retain both larger groups of features and finer parts.
-    positive = information[information > float(information.max()) * 0.05]
-    for percentile in (55, 80):
-        threshold = float(np.percentile(positive, percentile))
-        mask = (information >= threshold).astype(np.uint8) * 255
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:32]
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            if w * h >= max(4, width * height * 0.001):
-                padding = max(2, round(min(w, h) * 0.12))
-                candidates.append((x - padding, y - padding,
-                                   x + w + padding, y + h + padding))
+    kernel = np.ones((max(3, round(min(width, height) * 0.016)) | 1,) * 2, np.uint8)
+    support = None
+    labels = None
+    for threshold in (0.28, 0.46, 0.66):
+        mask = (subject >= threshold).astype(np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        count, current_labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+        if support is None:
+            support, labels = mask, current_labels
+        for index in sorted(range(1, count), key=lambda i: -int(stats[i, cv2.CC_STAT_AREA]))[:32]:
+            x, y, w, h, pixels = stats[index]
+            if pixels < max(4, width * height * 0.0015):
+                continue
+            padding = max(2, round(min(w, h) * 0.06))
+            candidates.append((x - padding, y - padding, x + w + padding, y + h + padding))
 
-    # Find spatially separated information peaks. Candidate windows are centered
-    # on actual image structure; suppression keeps one edge from taking all slots.
-    peaks = information.copy()
+    # Windows follow actual coarse-confidence peaks, never fixed subject positions.
+    peaks = subject.copy()
     for _ in range(12):
         _, peak, _, (x, y) = cv2.minMaxLoc(peaks)
-        if peak < float(information.max()) * 0.08:
+        if peak < 0.10:
             break
-        for fraction in (0.20, 0.42, 0.64):
+        for fraction in (0.28, 0.42, 0.56, 0.68):
             half_width, half_height = width * fraction / 2, height * fraction / 2
             candidates.append((x - half_width, y - half_height,
                                x + half_width, y + half_height))
@@ -176,35 +241,74 @@ def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
     integral = cv2.integral(information)
     total = float(information.sum())
 
+    def mass(box: Box) -> float:
+        x1, y1, x2, y2 = box
+        return float(integral[y2, x2] - integral[y1, x2] - integral[y2, x1] + integral[y1, x1])
+
     def score(box: Box) -> float:
         x1, y1, x2, y2 = box
-        mass = integral[y2, x2] - integral[y1, x2] - integral[y2, x1] + integral[y1, x1]
-        area_fraction = (x2 - x1) * (y2 - y1) / (width * height)
-        # Balance captured information against size; tiny high-contrast patches
-        # should not automatically beat a coherent group of features.
-        return float(mass / total / math.sqrt(area_fraction))
+        box_area = (x2 - x1) * (y2 - y1)
+        area_fraction = box_area / (width * height)
+        inside_mass = mass(box)
+        active = labels[y1:y2, x1:x2].ravel()
+        populations = np.bincount(active)
+        occupied = int(populations[1:].sum())
+        fill = occupied / max(box_area, 1)
+        connectivity = float(populations[1:].max(initial=0)) / max(occupied, 1)
+        pad_x, pad_y = max(1, round((x2 - x1) * 0.18)), max(1, round((y2 - y1) * 0.18))
+        outer = (max(0, x1 - pad_x), max(0, y1 - pad_y), min(width, x2 + pad_x), min(height, y2 + pad_y))
+        ring_area = (outer[2] - outer[0]) * (outer[3] - outer[1]) - box_area
+        ring_mean = (mass(outer) - inside_mass) / max(ring_area, 1)
+        contrast = max(0, inside_mass / box_area - ring_mean) / max(total / (width * height), 1e-6)
+        touch = sum((x1 == 0, y1 == 0, x2 == width, y2 == height))
+        aspect = (x2 - x1) / max(y2 - y1, 1)
+        penalty = (1 + 6 * max(0, area_fraction - 0.48) ** 1.3
+                   + 0.10 * touch + 0.15 * math.log(aspect) ** 2)
+        return (inside_mass / total / max(area_fraction, 1e-9) ** 0.65
+                * (0.5 + 0.5 * fill) * (0.65 + 0.35 * connectivity)
+                * (1 + 0.35 * min(contrast, 2)) / penalty)
 
     main_candidates = {_fit_box(box, width, height, 0.08, 0.80) for box in candidates}
+    if not main_candidates:
+        return _fallback_boxes(width, height)
     main = max(sorted(main_candidates), key=score)
+    mx1, my1, mx2, my2 = main
+    mw, mh = mx2 - mx1, my2 - my1
+    expanded = (max(0, mx1 - mw * 0.10), max(0, my1 - mh * 0.10),
+                min(width, mx2 + mw * 0.10), min(height, my2 + mh * 0.10))
     auxiliaries = {_fit_box(box, width, height, 0.008, 0.14) for box in candidates}
+    # Sample subject-local subwindows so sparse, smooth regions still yield details.
+    for fraction in (0.32, 0.45, 0.60):
+        aw, ah = max(1, mw * fraction), max(1, mh * fraction)
+        for gy in range(4):
+            for gx in range(4):
+                x, y = mx1 + (mw - aw) * gx / 3, my1 + (mh - ah) * gy / 3
+                auxiliaries.add(_fit_box((x, y, x + aw, y + ah), width, height, 0.008, 0.14))
+
+    def near_main(box: Box) -> bool:
+        x1, y1, x2, y2 = box
+        overlap = max(0, min(x2, expanded[2]) - max(x1, expanded[0])) * max(0, min(y2, expanded[3]) - max(y1, expanded[1]))
+        return (mx1 <= (x1 + x2) / 2 <= mx2 and my1 <= (y1 + y2) / 2 <= my2
+                and overlap >= 0.8 * (x2 - x1) * (y2 - y1)
+                and (x2 - x1) * (y2 - y1) <= 0.65 * mw * mh)
+
     selected: list[Box] = []
-    for box in sorted(auxiliaries, key=lambda item: (-score(item), item)):
-        if _intersection_over_union(main, box) > 0.70:
+    for box in sorted((b for b in auxiliaries if near_main(b)), key=lambda item: (-score(item), item)):
+        if _intersection_over_union(main, box) > 0.65:
             continue
         if all(_intersection_over_union(box, previous) < 0.35 for previous in selected):
             selected.append(box)
         if len(selected) == 4:
             break
 
-    # Sparse scenes can yield just one contour. Supplement only the missing
-    # rectangles, preserving the structure-driven choices already found.
-    for box in _fallback_boxes(width, height)[1:]:
+    # Missing details come from this main rectangle, not frame-wide fallback sites.
+    for box in _detail_fallback(main, width, height):
         if len(selected) >= 2:
             break
         if box not in selected:
             selected.append(box)
     while len(selected) < 2:  # Degenerate 1-pixel canvases cannot have distinct boxes.
-        selected.append(_fallback_boxes(width, height)[1])
+        selected.append(_detail_fallback(main, width, height)[0])
     return [main, *selected]
 
 
@@ -233,7 +337,7 @@ def detect_boxes(image: Image.Image) -> list[Box]:
 
 
 def process_image(image: Image.Image) -> Image.Image:
-    """Resize, analyze, and draw the Build 01 blue outlines on a copy of the image."""
+    """Resize, analyze, and draw the Build 01.1 blue outlines on a copy of the image."""
     result = resize_image(image)
     boxes = detect_boxes(result)
     draw = ImageDraw.Draw(result)
