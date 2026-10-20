@@ -1,4 +1,4 @@
-"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.
+"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.1.
 
 The rectangles describe visual information, not recognized objects. No model,
 network access, or global random state is used.
@@ -6,6 +6,7 @@ network access, or global random state is used.
 
 import logging
 import math
+from itertools import combinations
 
 import cv2
 import numpy as np
@@ -336,6 +337,31 @@ def detect_boxes(image: Image.Image) -> list[Box]:
         return _fallback_boxes(width, height)
 
 
+def _near_duplicate(a: Box, b: Box) -> bool:
+    """Reject overlapping, nested, or almost co-centered detail rectangles."""
+    aw, ah, bw, bh = a[2] - a[0], a[3] - a[1], b[2] - b[0], b[3] - b[1]
+    intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
+        0, min(a[3], b[3]) - max(a[1], b[1]))
+    center_distance = math.hypot(
+        ((a[0] + a[2] - b[0] - b[2]) / 2) / max((aw + bw) / 2, 1),
+        ((a[1] + a[3] - b[1] - b[3]) / 2) / max((ah + bh) / 2, 1))
+    return (_intersection_over_union(a, b) >= 0.32
+            or intersection / max(min(aw * ah, bw * bh), 1) >= 0.68
+            or center_distance < 0.65)
+
+
+def _medium_pool(boxes: list[Box], width: int, height: int) -> list[Box]:
+    """Keep a fixed, distinct three-box sequence for every Structure value."""
+    candidates = list(dict.fromkeys([*boxes[1:], *_detail_fallback(boxes[0], width, height)]))
+    # A large first auxiliary may contain all later ones. Choose the earliest
+    # compatible group instead of allowing that one box to block the whole pool.
+    for count in (3, 2, 1):
+        for group in combinations(candidates, count):
+            if all(not _near_duplicate(a, b) for a, b in combinations(group, 2)):
+                return list(group)
+    return []
+
+
 def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) -> list[Box]:
     """Build a shared, seeded detail sequence, independent of Structure.
 
@@ -428,15 +454,15 @@ def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) ->
         x1 = max(roi[0], min(roi[2] - bw, round(center_x - bw / 2)))
         y1 = max(roi[1], min(roi[3] - bh, round(center_y - bh / 2)))
         box = (x1, y1, x1 + bw, y1 + bh)
-        if all(_intersection_over_union(box, previous) < 0.72 for previous in selected):
+        if all(not _near_duplicate(box, previous) for previous in selected):
             selected.append(box)
-        if len(selected) == 30:
+        if len(selected) == 9:
             break
     return selected
 
 
 def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0) -> dict[str, list[Box]]:
-    """Return the unchanged main, 2–5 medium boxes, and 0–30 local micro boxes.
+    """Return the unchanged main, 1–3 medium boxes, and 0–9 local micro boxes.
 
     Structure controls layer density only. Seed controls micro variations only;
     both leave the Build 01.1 main-box algorithm and its location untouched.
@@ -444,13 +470,15 @@ def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0) -> d
     boxes = detect_boxes(image)
     value = float(structure)
     value = min(100.0, max(0.0, value)) if math.isfinite(value) else 45.0
-    medium_count = 2 + math.floor(3 * value / 100 + 0.5)
-    medium = boxes[1:1 + medium_count]
-    micro_count = math.floor(30 * (value / 100) ** 1.35 + 0.5)
+    t = value / 100
+    medium_count = 1 + math.floor(2 * t + 0.5)
+    pool = _medium_pool(boxes, image.width, image.height)
+    medium = pool[:medium_count]
+    micro_count = math.floor(8 * t + 2 * max(0.0, t - 0.5) + 0.5)
     micro: list[Box] = []
     if micro_count:
         try:
-            micro = _micro_boxes(image, boxes[0], boxes[1:], seed)[:micro_count]
+            micro = _micro_boxes(image, boxes[0], pool, seed)[:micro_count]
         except Exception:
             _LOGGER.warning("Detail analysis failed; retaining main and medium layers.", exc_info=True)
     return {"main": [boxes[0]], "medium": medium, "micro": micro}
@@ -465,5 +493,5 @@ def process_image(image: Image.Image, structure: float = 45, seed: int = 0) -> I
     for name, boxes in layers.items():
         for x1, y1, x2, y2 in boxes:
             draw.rectangle((x1, y1, x2 - 1, y2 - 1), outline=BOX_COLOR,
-                           width=1 if name == "micro" else line_width)
+                           width=line_width if name == "main" else 1)
     return result

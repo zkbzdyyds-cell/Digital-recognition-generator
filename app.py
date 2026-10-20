@@ -1,4 +1,4 @@
-"""image-observer-v1: local, CPU-only Detection Build 02."""
+"""image-observer-v1: local, CPU-only Detection Build 02.1."""
 
 import os
 import warnings
@@ -36,7 +36,7 @@ def detect_upload(
 
 
 def create_app() -> gr.Blocks:
-    with gr.Blocks(title="image-observer-v1 · Detection Build 02", analytics_enabled=False) as demo:
+    with gr.Blocks(title="image-observer-v1 · Detection Build 02.1", analytics_enabled=False) as demo:
         upload = gr.File(
             label="上传图片 · JPG / PNG",
             file_types=[".jpg", ".jpeg", ".png"],
@@ -48,7 +48,7 @@ def create_app() -> gr.Blocks:
         )
         with gr.Row():
             original = gr.Image(label="原图", interactive=False, format="png")
-            detection = gr.Image(label="Detection · Build 02", interactive=False, format="png")
+            detection = gr.Image(label="Detection · Build 02.1", interactive=False, format="png")
         # Share one queue for upload/slider changes; keep only the latest pending
         # value when a user drags quickly on a CPU-only Windows machine.
         gr.on(
