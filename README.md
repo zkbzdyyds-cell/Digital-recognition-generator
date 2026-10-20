@@ -1,60 +1,31 @@
-# Image Observer — Build 02.1
+# Image Observer — Build 02.2
 
-本地 CPU 实验性机器视觉图形工具。上传 JPG / PNG，在原图上生成固定蓝色的大、中、微型矩形，不绘制文字。提供独立 HTML 和 Python / Gradio 两个入口。
+本地 CPU 实验性机器视觉图形工具。保留 Build 02.1 的固定蓝色主框、中型框、微型框和 Structure，本轮增加 **Click to Focus** 与 **Reset Focus / 恢复自动**。提供 Python / Gradio 与独立 HTML 两个入口，不增加滤镜、颜色、文字或编辑器。
 
-## Structure 与三级框
+## 使用 Focus
 
-唯一新增控件是 **Structure**：0–100，默认 **45**。
+1. 上传 JPG / PNG，默认生成自动识别结果。
+2. 点击**原图**中的视觉关注位置，主框改为覆盖该位置附近的结构，中型框和微型框向附近集中。
+3. 再次点击可更换焦点；调整 Structure 保留当前焦点。
+4. 点击 **Reset Focus / 恢复自动**，恢复同一图片和 Structure 的自动结果。上传新图，包括重新上传同一文件，都会清除焦点。
 
-- **大型主框：1 个。** 沿用 Build 01.1 的主体候选评分，调整 Structure 不移动主框。
-- **中型分析框：1–3 个。** 围绕主框及其附近分布。
-- **微型识别框：0–9 个。** 在主体附近的边缘、局部对比变化和细节处生成，具有不同大小、宽高比，允许局部聚集。
+焦点保存在各自的 Gradio 会话 State / HTML 页面内，不使用共享全局焦点。固定 Seed 为 **0**，相同图片、Structure、焦点与 Seed 会得到相同结果。
 
-Structure 越高，框数量平滑增加，最高总框数为 13。LOW（0）为 1 主框 + 1 中型框；MEDIUM（50）为 1 + 2 + 4；HIGH（100）为 1 + 3 + 9。默认 45 为 1 + 2 + 4。纯色或极小图片可以减少微型框。微型候选来自图像结构，不在全画面均匀随机撒布。
+## 尺寸与框数量
 
-中、微型框会抑制近中心、严重重叠和包含关系过强的候选：IoU ≥ 0.32、相交面积 / 较小框面积 ≥ 0.68，或按平均宽高归一化的中心距离 < 0.65，满足任一条件就跳过。允许少量交叠，优先分配到不同局部细节。
+图片先按 EXIF 方向校正，保留完整构图；仅当最长边超过 1600px 时等比缩小。小图不放大，不裁切、拉伸、补边或扩展画布。短边只作整数像素取整。预览的自适应大小与下载 PNG 的实际像素尺寸分开处理。
 
-界面固定随机种子为 **0**，没有额外的种子控件。同一入口内，相同输入、Structure 和种子产生相同结果；调高密度会延续同一个微型候选序列。Python 调用时可显式指定 `seed`：
+| Structure | 主框 | 中型框 | 微型框 | 总数 |
+| --- | --- | --- | --- | --- |
+| 0 | 1 | 1 | 0 | 2 |
+| 50 | 1 | 2 | 4 | 7 |
+| 100 | 1 | 3 | 9 | 13 |
 
-```python
-from PIL import Image
-from processor import process_image, detect_layers, resize_image
-
-with Image.open("test_images/detection_01.jpg") as source:
-    original = resize_image(source)
-    layers = detect_layers(original, structure=45, seed=0)
-    result = process_image(original, structure=45, seed=0)
-    result.save("outputs/detection_01_build_02_1_s045.png")
-    print({name: len(boxes) for name, boxes in layers.items()})
-```
-
-不调用在线 API，不下载模型，不使用 GPU / CUDA；首次安装 Python 依赖需要联网，正常处理图片完全在本地完成。没有文字叠加、滤镜、Glitch、颜色选择或后续模式。
-
-## 直接打开 HTML
-
-只需下载 **`image-observer-v1.html`** 一个文件：
-
-1. 在 GitHub 的 `build-02-1` 分支打开该文件，点击右上角 **Download raw file**（下载箭头）。
-2. 保存后，用 Chrome 或 Edge 打开 `.html` 文件。
-3. 上传图片，拖动 Structure 查看不同疏密。
-
-HTML 内嵌全部样式与检测逻辑，无需 Python、服务器或网络，图片保留在当前浏览器中。输出图可右键另存为图片。
-
-### Structure=45 的双入口差异核查
-
-Build 02 的两份源码来自同一提交，HTML 和 Python 的界面固定 Seed 都为 0，LCG 常数也相同；差异来自独立的图像处理路径：
-
-- Python：最长边 512px 的分析图、Pillow LANCZOS 缩放、OpenCV Gaussian / Sobel / Lab 特征。
-- HTML：最长边 480px 的分析图、Canvas 缩放、JavaScript box blur / RGB 特征。
-- Build 02 的 Python 中型框为 2px，而 HTML 为 1px；Build 02.1 已统一为 1px。
-
-Build 02.1 的版本标记、固定 Seed、密度公式和重复框抑制规则一致；45 时两个入口都以 1 主框 + 2 中型框 + 4 微型框为目标。主检测路径保持原有实现，因此跨入口的框坐标和原图解码像素仍可能不同；同一入口内相同输入、参数和 Seed 会重复得到相同结果。没有把坐标差异误归因为 Seed，也没有为了逐像素一致重写检测模型。
+范围仍为 0–100，默认 45。中、微型框保留重叠、包含及相近中心的抑制；Structure 只控制密度，不移动已选主框。纯色、极小图或细节不足时允许减少微型框，稳定回退仍保留有效主框。极端长宽比下，以整数像素边界及覆盖焦点为优先，框面积和宽高比约束可能无法同时满足。
 
 ## Windows 本地 Gradio
 
-安装 **64 位 Python 3.12**（安装程序中启用 Python Launcher）。解压项目后，在**包含 `app.py` 的文件夹**中打开 PowerShell。
-
-依次运行：
+使用 **64 位 Python 3.12**，在包含 `app.py` 的项目目录中打开 PowerShell：
 
 ```powershell
 py -3.12 -m venv .venv
@@ -63,51 +34,63 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe app.py
 ```
 
-保持终端打开，在**运行 Python 的同一台电脑**用浏览器访问 `http://127.0.0.1:7860`。上传图片后拖动 Structure，结果自动更新。按 `Ctrl+C` 停止。修改代码或更新项目后，停止旧实例再启动。
+在同一台电脑访问 `http://127.0.0.1:7860`，保持终端打开。更新代码后停止旧实例，再启动。输出图工具栏的下载按钮保存 PNG；按 `Ctrl+C` 停止服务。直接调用虚拟环境 Python，无需激活脚本或修改 PowerShell 执行策略。
 
-直接调用虚拟环境的 Python，无需执行激活脚本或更改 PowerShell 执行策略。若提示找不到 `py`，使用 Python 安装程序启用 Launcher，或用 Python 3.12 的完整路径替换第一条命令中的 `py -3.12`。若 7860 端口已占用，先关闭之前启动的实例。
+本轮复用现有依赖，无需新增模型、GPU 或在线服务。`opencv-python-headless` 通过 Gradio 展示结果，不需要另装桌面 OpenCV。首次安装依赖需联网，图像处理在本地执行；遥测、公开分享和监控关闭。所有事件共用 CPU 处理队列，焦点和原图由 Gradio State 分别保存。
 
-`opencv-python-headless` 是不带桌面窗口的 OpenCV，本项目通过 Gradio 显示图片，无需另外安装 `opencv-python`。上传和滑杆共享一个处理队列，快速拖动时仅保留最新的待处理参数，避免积压。Gradio 遥测、公开分享与监控已关闭。
+本轮在 Linux 的 Python 3.12 / Gradio 6.30 与 Chromium 中验证了真实页面交互，未在 Windows 实机执行；Windows 命令及依赖路径保持原有跨平台方式，没有新增平台脚本。
 
-## 两张测试图和保存输出（Build 02.1）
+## 独立 HTML
 
-- `test_images/detection_01.jpg`：人像。
-- `test_images/detection_02.jpg`：牛图。
+下载 `build-02-2` 分支的 **`image-observer-v1.html`**（GitHub 文件页 → Download raw file），用 Chrome / Edge 直接打开。上传、点击原图、Structure 与恢复自动均离线工作；输出 canvas 可右键另存为 PNG。CSS 预览缩放不会改变画布实际像素。
 
-| 原图 | LOW · 0 | MEDIUM · 50 | HIGH · 100 |
+HTML 与 Python 使用同样的交互规则、固定 Seed 和数量限制，但沿用各自的分析路径：Python 使用 512px 分析图、Pillow / OpenCV；HTML 使用 480px 分析图、Canvas / JavaScript。因此两个入口的框坐标可能不同，同一入口内结果可重复。
+
+## 测试图与结果
+
+已核对原图内容，命名没有颠倒：
+
+| 文件 | 内容 | 输入尺寸 | 输出尺寸 |
 | --- | --- | --- | --- |
-| 人像 | [查看](outputs/detection_01_build_02_1_s000.png) | [查看](outputs/detection_01_build_02_1_s050.png) | [查看](outputs/detection_01_build_02_1_s100.png) |
-| 牛图 | [查看](outputs/detection_02_build_02_1_s000.png) | [查看](outputs/detection_02_build_02_1_s050.png) | [查看](outputs/detection_02_build_02_1_s100.png) |
+| `test_images/detection_01.jpg` | 人像 | 909 × 1447 | 909 × 1447 |
+| `test_images/detection_02.jpg` | 牛 | 1930 × 1280 | 1600 × 1061 |
 
-依次上传两张图，在 Structure **0、50、100** 比较：主框一致，低值稀疏，高值出现更多大小及宽高比不同的局部微框。重复设置同一个值应得到同样的框选结果。
+本轮输出保存在 `outputs/`，文件名包含图片编号、内容、`build_02_2`、入口、Structure、Focus 名称与像素坐标；旧版本结果保留。Structure 50 分别比较人像自动 / 脸部 / 膝盖，牛图自动 / 牛头 / 牛身；四个手动焦点另外验证 Structure 0、100。
 
-在 Windows 项目目录，可一次保存两张图的三个 Structure 输出：
+[查看本轮验收记录与输出索引](outputs/build_02_2_validation.md)。记录包含点击映射、实际尺寸、主框变化、PNG 下载、恢复自动、会话隔离与异常回退。
+
+运行尺寸和焦点自动验证：
 
 ```powershell
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from PIL import Image; from processor import process_image; out = Path('outputs'); out.mkdir(exist_ok=True); [process_image(Image.open(p), structure=s, seed=0).save(out / (p.stem + '_build_02_1_python_s' + str(s).zfill(3) + '.png')) for p in sorted(Path('test_images').glob('detection_0*.jpg')) for s in (0, 50, 100)]"
+.\.venv\Scripts\python.exe -m unittest -v test_build_02_2
 ```
 
-`outputs/` 中本轮保存的 6 张 `*_build_02_1_s000/s050/s100.png` 来自独立 HTML，分别对应人像与牛图的三个密度。旧 Build 02 输出保留用于对照；Python 使用同样两张图核查密度、去重和确定性，另对 45 做路径差异诊断。
+验证横图、竖图、方图在 1600px 上下的完整构图、EXIF 方向、固定蓝色叠加、焦点坐标映射、可重复性、数量上限及边界回退。
 
-## 处理与边界
+## Python 调用
 
-Pillow 校正 EXIF 方向，保持原比例将最长边限制在 1600px，小图不放大。透明 PNG 使用白底合成。主框继续依据低频颜色显著性、背景颜色统计、连通性、填充率和环带对比评分，并抑制重复纹理及近黑背景。
+```python
+from PIL import Image
+from processor import resize_image, detect_layers, process_image
 
-微型框只在主框附近的候选范围内根据局部结构生成，再用局部随机种子改变候选顺序、大小与宽高比，避免全图散点。蓝线按层级绘制，微型框使用细线。检测不代表准确物体识别。
+with Image.open("test_images/detection_01.jpg") as source:
+    original = resize_image(source)
+    focus = (430, 520)  # 已显示原图的像素坐标；None 恢复自动。
+    layers = detect_layers(original, structure=50, seed=0, focus=focus)
+    result = process_image(original, structure=50, seed=0, focus=focus)
+    result.save("outputs/portrait_build_02_2_s050_focus_face.png")
+```
 
-纯色图、极小图和分析异常有稳定回退。极小或极端长宽比图片可能无法同时满足面积、形状和整数像素约束，允许框重叠或减少微型框，以保证输出有效。
-
-本轮只用两张原图验证 Structure 0 / 50 / 100 的数量、相同 Seed 的可重复性、框序列前缀、重复框筛选、图内边界、固定蓝色和主框不漂移。HTML 通过实际加载、断网后的上传与滑杆、窄屏预览及 LOW 异常回退检查。45 只用于两入口路径诊断，没有额外保存该参数的图片。
-
-运行验证在 Python 3.12 和 Chromium 中执行；本轮优先交付独立 HTML，没有新增安装文件或平台启动脚本。
+`detect_layers` 的焦点与返回框均为传入图像经 EXIF 校正后的像素坐标。`process_image` 若直接接收超过 1600px 的原文件，焦点应使用该原文件经 EXIF 校正后的坐标；函数会将焦点与图片一同映射至输出尺寸。Gradio 已显示缩小后的原图，`Image.select` 返回的坐标直接使用，不再二次缩放。
 
 ```text
-image-observer-v1.html # 可独立、离线打开的浏览器版本
-app.py                # 上传、Structure 与本地 Gradio 页面
-processor.py          # 图像分析、三级矩形与绘制
-requirements.txt      # 已验证的直接依赖版本
-test_images/          # 原图与合成示例
-outputs/              # 本地输出及本轮保存的示例
+app.py                   # Gradio 上传、Structure、会话焦点与 Reset
+processor.py             # 图像分析、焦点评分、三级矩形与绘制
+image-observer-v1.html   # 可独立离线打开的浏览器入口
+requirements.txt         # 现有依赖版本，无额外模型
+test_build_02_2.py        # 尺寸与焦点自动回归验证
+test_images/             # 原图
+outputs/                 # 各版本输出、本轮验收记录
 ```
 
-Linux / macOS 使用 Python 3.12 创建 `.venv` 后，将 Windows 命令中的 `.\.venv\Scripts\python.exe` 换成 `.venv/bin/python`。
+Linux / macOS 使用 Python 3.12 创建虚拟环境后，将 Windows 命令中的 `.\.venv\Scripts\python.exe` 换成对应的 `.venv/bin/python`。

@@ -1,0 +1,2226 @@
+{
+  "version": "Build 02.2",
+  "seed": 0,
+  "runtime": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "browser": "Chromium",
+    "windows_hardware_tested": false
+  },
+  "records": [
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 50,
+      "focusName": "auto",
+      "focus": null,
+      "file": "detection_01_portrait_build_02_2_gradio_s050_focus_auto.png",
+      "sha256": "979e227cf669ac2a04a5a9754e92a57208e1c66f43c8ae07f949a33c46184cf5",
+      "layers": {
+        "main": [
+          [
+            497,
+            706,
+            788,
+            1071
+          ]
+        ],
+        "medium": [
+          [
+            573,
+            802,
+            749,
+            1023
+          ],
+          [
+            561,
+            952,
+            655,
+            1071
+          ]
+        ],
+        "micro": [
+          [
+            757,
+            719,
+            788,
+            737
+          ],
+          [
+            675,
+            776,
+            705,
+            798
+          ],
+          [
+            663,
+            815,
+            695,
+            843
+          ],
+          [
+            681,
+            887,
+            722,
+            913
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 50,
+      "focusName": "face",
+      "focus": [
+        429,
+        519
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s050_focus_face_x0429_y0519.png",
+      "sha256": "7ad4d4b11134f886e4cc35f8590d00c534fc1bfdfa27b9e07af92a9d1bfbb14f",
+      "clickGeometry": {
+        "clientX": 375.88245615929515,
+        "clientY": 489.8678947823082,
+        "scale": 0.6578589322736696,
+        "natural": [
+          909,
+          1447
+        ],
+        "rect": [
+          598,
+          951.921875
+        ],
+        "native": {
+          "clientX": 375,
+          "clientY": 489,
+          "left": 93,
+          "top": 147.78125,
+          "width": 598,
+          "height": 951.921875
+        },
+        "expected": [
+          429,
+          519
+        ]
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 0,
+      "focusName": "face",
+      "focus": [
+        429,
+        519
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s000_focus_face_x0429_y0519.png",
+      "sha256": "3c4cd4e176fab9e6a348ab44a4bf1fda2f1aa5aa75f2cc7bb3c1101f503aeed0",
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ]
+        ],
+        "micro": []
+      },
+      "layer_counts": [
+        1,
+        1,
+        0
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 100,
+      "focusName": "face",
+      "focus": [
+        429,
+        519
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s100_focus_face_x0429_y0519.png",
+      "sha256": "9f9d991265ae22d27e48c2b6406350edb67bb8f89016c9524e1176df3e23721d",
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ],
+          [
+            428,
+            364,
+            544,
+            535
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ],
+          [
+            455,
+            428,
+            480,
+            474
+          ],
+          [
+            376,
+            466,
+            411,
+            481
+          ],
+          [
+            480,
+            427,
+            506,
+            469
+          ],
+          [
+            461,
+            557,
+            480,
+            576
+          ],
+          [
+            475,
+            485,
+            498,
+            519
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        3,
+        9
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 50,
+      "focusName": "knee",
+      "focus": [
+        529,
+        949
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s050_focus_knee_x0529_y0949.png",
+      "sha256": "39e4753b0c89d59a2c9fd982700ea58824e24c307d9e58c72783fdea001551a3",
+      "clickGeometry": {
+        "clientX": 441.6683493866621,
+        "clientY": 772.7472356599861,
+        "scale": 0.6578589322736696,
+        "natural": [
+          909,
+          1447
+        ],
+        "rect": [
+          598,
+          951.921875
+        ],
+        "native": {
+          "clientX": 441,
+          "clientY": 772,
+          "left": 93,
+          "top": 147.78125,
+          "width": 598,
+          "height": 951.921875
+        },
+        "expected": [
+          529,
+          949
+        ]
+      },
+      "layers": {
+        "main": [
+          [
+            454,
+            743,
+            714,
+            1153
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            893,
+            666,
+            1080
+          ],
+          [
+            502,
+            743,
+            621,
+            930
+          ]
+        ],
+        "micro": [
+          [
+            593,
+            905,
+            624,
+            923
+          ],
+          [
+            551,
+            835,
+            581,
+            857
+          ],
+          [
+            550,
+            909,
+            582,
+            937
+          ],
+          [
+            579,
+            995,
+            620,
+            1021
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 0,
+      "focusName": "knee",
+      "focus": [
+        529,
+        949
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s000_focus_knee_x0529_y0949.png",
+      "sha256": "01e661f9236308857cef15e30d5bc7ac230f145acb6f9a6401ca92115e399c5e",
+      "layers": {
+        "main": [
+          [
+            454,
+            743,
+            714,
+            1153
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            893,
+            666,
+            1080
+          ]
+        ],
+        "micro": []
+      },
+      "layer_counts": [
+        1,
+        1,
+        0
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "input": [
+        909,
+        1447
+      ],
+      "size": [
+        909,
+        1447
+      ],
+      "structure": 100,
+      "focusName": "knee",
+      "focus": [
+        529,
+        949
+      ],
+      "file": "detection_01_portrait_build_02_2_gradio_s100_focus_knee_x0529_y0949.png",
+      "sha256": "b58cedc9b1098b8e2b1d693170f90362e0f64e3682efed1387a3454b1af836f3",
+      "layers": {
+        "main": [
+          [
+            454,
+            743,
+            714,
+            1153
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            893,
+            666,
+            1080
+          ],
+          [
+            502,
+            743,
+            621,
+            930
+          ],
+          [
+            579,
+            775,
+            691,
+            952
+          ]
+        ],
+        "micro": [
+          [
+            593,
+            905,
+            624,
+            923
+          ],
+          [
+            551,
+            835,
+            581,
+            857
+          ],
+          [
+            550,
+            909,
+            582,
+            937
+          ],
+          [
+            579,
+            995,
+            620,
+            1021
+          ],
+          [
+            695,
+            823,
+            720,
+            869
+          ],
+          [
+            580,
+            911,
+            609,
+            945
+          ],
+          [
+            577,
+            972,
+            612,
+            987
+          ],
+          [
+            613,
+            991,
+            631,
+            1019
+          ],
+          [
+            577,
+            812,
+            600,
+            846
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        3,
+        9
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 50,
+      "focusName": "auto",
+      "focus": null,
+      "file": "detection_02_cow_build_02_2_gradio_s050_focus_auto.png",
+      "sha256": "83f3407ce5a84eafdf1eafa3ce30f3c4011e316092dc445460d50c654a9c27f5",
+      "layers": {
+        "main": [
+          [
+            791,
+            355,
+            1466,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1159,
+            518,
+            1466,
+            721
+          ],
+          [
+            845,
+            400,
+            1142,
+            597
+          ]
+        ],
+        "micro": [
+          [
+            778,
+            398,
+            831,
+            428
+          ],
+          [
+            927,
+            454,
+            977,
+            491
+          ],
+          [
+            1381,
+            530,
+            1435,
+            578
+          ],
+          [
+            1239,
+            778,
+            1308,
+            822
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 50,
+      "focusName": "head",
+      "focus": [
+        749,
+        509
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s050_focus_head_x0749_y0509.png",
+      "sha256": "e3e6de29d37d48a0bb8dfee9f9df2ac34836d908490845a8a0b5fd70ee92db32",
+      "clickGeometry": {
+        "clientX": 373.31258836003775,
+        "clientY": 433.3928487276155,
+        "scale": 0.373748232799246,
+        "natural": [
+          1600,
+          1061
+        ],
+        "rect": [
+          598,
+          396.546875
+        ],
+        "native": {
+          "clientX": 373,
+          "clientY": 433,
+          "left": 93,
+          "top": 242.78125,
+          "width": 598,
+          "height": 396.546875
+        },
+        "expected": [
+          749,
+          509
+        ]
+      },
+      "layers": {
+        "main": [
+          [
+            521,
+            359,
+            975,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            703,
+            436,
+            975,
+            621
+          ],
+          [
+            625,
+            493,
+            772,
+            593
+          ]
+        ],
+        "micro": [
+          [
+            753,
+            400,
+            788,
+            420
+          ],
+          [
+            694,
+            438,
+            728,
+            463
+          ],
+          [
+            764,
+            566,
+            801,
+            598
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 0,
+      "focusName": "head",
+      "focus": [
+        749,
+        509
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s000_focus_head_x0749_y0509.png",
+      "sha256": "3d8f0276510ddbca360374c649e22b22c9c24881c4f41a749e554cc729713740",
+      "layers": {
+        "main": [
+          [
+            521,
+            359,
+            975,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            703,
+            436,
+            975,
+            621
+          ]
+        ],
+        "micro": []
+      },
+      "layer_counts": [
+        1,
+        1,
+        0
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 100,
+      "focusName": "head",
+      "focus": [
+        749,
+        509
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s100_focus_head_x0749_y0509.png",
+      "sha256": "9f039b88d2ba66bbfa749e18458e7798470c2f7a4f4d473a821553f1210091a8",
+      "layers": {
+        "main": [
+          [
+            521,
+            359,
+            975,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            703,
+            436,
+            975,
+            621
+          ],
+          [
+            625,
+            493,
+            772,
+            593
+          ],
+          [
+            557,
+            389,
+            757,
+            523
+          ]
+        ],
+        "micro": [
+          [
+            753,
+            400,
+            788,
+            420
+          ],
+          [
+            694,
+            438,
+            728,
+            463
+          ],
+          [
+            764,
+            566,
+            801,
+            598
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ],
+          [
+            646,
+            422,
+            675,
+            474
+          ],
+          [
+            832,
+            436,
+            871,
+            454
+          ],
+          [
+            740,
+            583,
+            776,
+            599
+          ],
+          [
+            882,
+            447,
+            902,
+            479
+          ],
+          [
+            784,
+            413,
+            820,
+            457
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        3,
+        9
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 50,
+      "focusName": "body",
+      "focus": [
+        1199,
+        648
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s050_focus_body_x1199_y0648.png",
+      "sha256": "ceb40d6c2dba914076a888b284f898c0ac729e7f980890795505530a4d2a3c1a",
+      "clickGeometry": {
+        "clientX": 541.4992931196985,
+        "clientY": 485.7176013195099,
+        "scale": 0.373748232799246,
+        "natural": [
+          1600,
+          1061
+        ],
+        "rect": [
+          598,
+          396.546875
+        ],
+        "native": {
+          "clientX": 541,
+          "clientY": 485,
+          "left": 93,
+          "top": 242.78125,
+          "width": 598,
+          "height": 396.546875
+        },
+        "expected": [
+          1199,
+          648
+        ]
+      },
+      "layers": {
+        "main": [
+          [
+            971,
+            496,
+            1425,
+            799
+          ]
+        ],
+        "medium": [
+          [
+            1075,
+            565,
+            1222,
+            665
+          ],
+          [
+            1175,
+            630,
+            1322,
+            730
+          ]
+        ],
+        "micro": [
+          [
+            1259,
+            485,
+            1294,
+            505
+          ],
+          [
+            1369,
+            532,
+            1403,
+            557
+          ],
+          [
+            1055,
+            628,
+            1092,
+            660
+          ],
+          [
+            1384,
+            629,
+            1431,
+            659
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        2,
+        4
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 0,
+      "focusName": "body",
+      "focus": [
+        1199,
+        648
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s000_focus_body_x1199_y0648.png",
+      "sha256": "683ff03ce77bcba04312d7a50e5a42b702a61c53bb6be6cc2eefe128ee082f54",
+      "layers": {
+        "main": [
+          [
+            971,
+            496,
+            1425,
+            799
+          ]
+        ],
+        "medium": [
+          [
+            1075,
+            565,
+            1222,
+            665
+          ]
+        ],
+        "micro": []
+      },
+      "layer_counts": [
+        1,
+        1,
+        0
+      ],
+      "download_matches_processor_pixels": true
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "input": [
+        1930,
+        1280
+      ],
+      "size": [
+        1600,
+        1061
+      ],
+      "structure": 100,
+      "focusName": "body",
+      "focus": [
+        1199,
+        648
+      ],
+      "file": "detection_02_cow_build_02_2_gradio_s100_focus_body_x1199_y0648.png",
+      "sha256": "5da7dee9f7b6920d080aa534f3e4a300066988d1209b2f929bf1efa03904b506",
+      "layers": {
+        "main": [
+          [
+            971,
+            496,
+            1425,
+            799
+          ]
+        ],
+        "medium": [
+          [
+            1075,
+            565,
+            1222,
+            665
+          ],
+          [
+            1175,
+            630,
+            1322,
+            730
+          ],
+          [
+            1189,
+            520,
+            1385,
+            651
+          ]
+        ],
+        "micro": [
+          [
+            1259,
+            485,
+            1294,
+            505
+          ],
+          [
+            1369,
+            532,
+            1403,
+            557
+          ],
+          [
+            1055,
+            628,
+            1092,
+            660
+          ],
+          [
+            1384,
+            629,
+            1431,
+            659
+          ],
+          [
+            1050,
+            762,
+            1079,
+            814
+          ],
+          [
+            1288,
+            482,
+            1321,
+            520
+          ],
+          [
+            1385,
+            614,
+            1424,
+            632
+          ],
+          [
+            1093,
+            761,
+            1123,
+            809
+          ],
+          [
+            1409,
+            518,
+            1437,
+            552
+          ]
+        ]
+      },
+      "layer_counts": [
+        1,
+        3,
+        9
+      ],
+      "download_matches_processor_pixels": true
+    }
+  ],
+  "gradio": {
+    "requestCount": 31,
+    "errors": [],
+    "narrowClick": {
+      "clientX": 186.2675362819627,
+      "clientY": 336.7327120767104,
+      "scale": 0.35642709053213545,
+      "natural": [
+        909,
+        1447
+      ],
+      "rect": [
+        324,
+        515.75
+      ],
+      "native": {
+        "clientX": 186,
+        "clientY": 336,
+        "left": 33,
+        "top": 151.390625,
+        "width": 324,
+        "height": 515.75
+      },
+      "expected": [
+        429,
+        518
+      ]
+    },
+    "checks": [
+      "native-coordinate mapping",
+      "download-button PNG",
+      "Reset exact auto",
+      "session isolation",
+      "upload reset",
+      "Structure persistence",
+      "same-focus repeat",
+      "responsive"
+    ]
+  },
+  "python_dimension_checks": [
+    {
+      "input": [
+        321,
+        179
+      ],
+      "output": [
+        321,
+        179
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        179,
+        321
+      ],
+      "output": [
+        179,
+        321
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        257,
+        257
+      ],
+      "output": [
+        257,
+        257
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        1600,
+        901
+      ],
+      "output": [
+        1600,
+        901
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        901,
+        1600
+      ],
+      "output": [
+        901,
+        1600
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        3001,
+        1999
+      ],
+      "output": [
+        1600,
+        1066
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        1999,
+        3001
+      ],
+      "output": [
+        1066,
+        1600
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        2049,
+        2049
+      ],
+      "output": [
+        1600,
+        1600
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        1,
+        1
+      ],
+      "output": [
+        1,
+        1
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input": [
+        1,
+        10001
+      ],
+      "output": [
+        1,
+        1600
+      ],
+      "verified_structures": [
+        0,
+        100
+      ]
+    },
+    {
+      "input_exif": [
+        241,
+        383
+      ],
+      "orientation": 6,
+      "output": [
+        383,
+        241
+      ]
+    },
+    {
+      "file": "test_images/detection_01.jpg",
+      "input": [
+        909,
+        1447
+      ],
+      "output": [
+        909,
+        1447
+      ]
+    },
+    {
+      "file": "test_images/detection_02.jpg",
+      "input": [
+        1930,
+        1280
+      ],
+      "output": [
+        1600,
+        1061
+      ]
+    }
+  ],
+  "html_dimension_checks": {
+    "version": "Build02.2",
+    "browser": "Chromium",
+    "offline": true,
+    "records": [
+      {
+        "input": [
+          3001,
+          1999
+        ],
+        "original": [
+          1600,
+          1066
+        ],
+        "output": [
+          1600,
+          1066
+        ],
+        "css": [
+          560,
+          373.09375
+        ],
+        "focus": null,
+        "changed": 9557,
+        "actual_click": {
+          "client": [
+            51,
+            481
+          ],
+          "bounds": [
+            51,
+            481.09375,
+            560,
+            373.09375
+          ]
+        },
+        "focused": {
+          "size": [
+            1600,
+            1066
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                453,
+                303
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                273,
+                183
+              ],
+              [
+                214,
+                140,
+                417,
+                277
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          1600,
+          1066
+        ],
+        "composition_matches_reference": true
+      },
+      {
+        "input": [
+          1999,
+          3001
+        ],
+        "original": [
+          1066,
+          1600
+        ],
+        "output": [
+          1066,
+          1600
+        ],
+        "css": [
+          415.734375,
+          623.984375
+        ],
+        "focus": null,
+        "changed": 9732,
+        "actual_click": {
+          "client": [
+            123,
+            336
+          ],
+          "bounds": [
+            123.125,
+            336.09375,
+            415.734375,
+            623.984375
+          ]
+        },
+        "focused": {
+          "size": [
+            1066,
+            1600
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                303,
+                453
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                183,
+                273
+              ],
+              [
+                143,
+                210,
+                280,
+                413
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          1066,
+          1600
+        ],
+        "composition_matches_reference": true
+      },
+      {
+        "input": [
+          2049,
+          2049
+        ],
+        "original": [
+          1600,
+          1600
+        ],
+        "output": [
+          1600,
+          1600
+        ],
+        "css": [
+          560,
+          560
+        ],
+        "focus": null,
+        "changed": 13405,
+        "actual_click": {
+          "client": [
+            51,
+            400
+          ],
+          "bounds": [
+            51,
+            400.09375,
+            560,
+            560
+          ]
+        },
+        "focused": {
+          "size": [
+            1600,
+            1600
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                453,
+                453
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                273,
+                273
+              ],
+              [
+                214,
+                210,
+                417,
+                413
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          1600,
+          1600
+        ],
+        "composition_matches_reference": true
+      },
+      {
+        "input": [
+          321,
+          179
+        ],
+        "original": [
+          321,
+          179
+        ],
+        "output": [
+          321,
+          179
+        ],
+        "css": [
+          321,
+          179
+        ],
+        "focus": null,
+        "changed": 1563,
+        "actual_click": {
+          "client": [
+            171,
+            549
+          ],
+          "bounds": [
+            170.5,
+            548.59375,
+            321,
+            179
+          ]
+        },
+        "focused": {
+          "size": [
+            321,
+            179
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                91,
+                51
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                55,
+                31
+              ],
+              [
+                43,
+                23,
+                84,
+                46
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          321,
+          179
+        ],
+        "composition_matches_reference": true
+      },
+      {
+        "input": [
+          179,
+          321
+        ],
+        "original": [
+          179,
+          321
+        ],
+        "output": [
+          179,
+          321
+        ],
+        "css": [
+          179,
+          321
+        ],
+        "focus": null,
+        "changed": 1326,
+        "actual_click": {
+          "client": [
+            242,
+            481
+          ],
+          "bounds": [
+            241.5,
+            481.09375,
+            179,
+            321
+          ]
+        },
+        "focused": {
+          "size": [
+            179,
+            321
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                51,
+                91
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                31,
+                55
+              ],
+              [
+                24,
+                42,
+                47,
+                83
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          179,
+          321
+        ],
+        "composition_matches_reference": true
+      },
+      {
+        "input": [
+          257,
+          257
+        ],
+        "original": [
+          257,
+          257
+        ],
+        "output": [
+          257,
+          257
+        ],
+        "css": [
+          257,
+          257
+        ],
+        "focus": null,
+        "changed": 1812,
+        "actual_click": {
+          "client": [
+            203,
+            510
+          ],
+          "bounds": [
+            202.5,
+            509.59375,
+            257,
+            257
+          ]
+        },
+        "focused": {
+          "size": [
+            257,
+            257
+          ],
+          "focus": [
+            0,
+            0
+          ],
+          "layers": {
+            "main": [
+              [
+                0,
+                0,
+                73,
+                73
+              ]
+            ],
+            "medium": [
+              [
+                0,
+                0,
+                44,
+                44
+              ],
+              [
+                34,
+                34,
+                67,
+                67
+              ]
+            ],
+            "micro": []
+          }
+        },
+        "expected": [
+          257,
+          257
+        ],
+        "composition_matches_reference": true
+      }
+    ],
+    "errors": []
+  },
+  "html_focus_checks": [
+    {
+      "name": "detection_01",
+      "entries": [
+        {
+          "focus": null,
+          "layers": {
+            "main": [
+              [
+                202,
+                320,
+                711,
+                1131
+              ]
+            ],
+            "medium": [
+              [
+                244,
+                401,
+                467,
+                757
+              ],
+              [
+                439,
+                693,
+                668,
+                1058
+              ]
+            ],
+            "micro": [
+              [
+                632,
+                383,
+                692,
+                416
+              ],
+              [
+                659,
+                555,
+                716,
+                597
+              ],
+              [
+                412,
+                558,
+                476,
+                615
+              ],
+              [
+                259,
+                862,
+                340,
+                913
+              ]
+            ]
+          },
+          "size": [
+            909,
+            1447
+          ]
+        },
+        {
+          "focus": [
+            426,
+            519
+          ],
+          "layers": {
+            "main": [
+              [
+                325,
+                263,
+                530,
+                778
+              ]
+            ],
+            "medium": [
+              [
+                361,
+                452,
+                454,
+                684
+              ],
+              [
+                437,
+                452,
+                530,
+                684
+              ]
+            ],
+            "micro": [
+              [
+                448,
+                567,
+                479,
+                585
+              ],
+              [
+                385,
+                552,
+                415,
+                573
+              ],
+              [
+                464,
+                485,
+                497,
+                512
+              ],
+              [
+                455,
+                576,
+                497,
+                603
+              ]
+            ]
+          },
+          "size": [
+            909,
+            1447
+          ]
+        },
+        {
+          "focus": [
+            535,
+            953
+          ],
+          "layers": {
+            "main": [
+              [
+                319,
+                733,
+                749,
+                1173
+              ]
+            ],
+            "medium": [
+              [
+                478,
+                892,
+                671,
+                1091
+              ],
+              [
+                352,
+                778,
+                542,
+                971
+              ]
+            ],
+            "micro": [
+              [
+                581,
+                901,
+                623,
+                925
+              ],
+              [
+                485,
+                962,
+                524,
+                992
+              ],
+              [
+                650,
+                820,
+                692,
+                859
+              ],
+              [
+                638,
+                974,
+                692,
+                1010
+              ]
+            ]
+          },
+          "size": [
+            909,
+            1447
+          ]
+        }
+      ]
+    },
+    {
+      "name": "detection_02",
+      "entries": [
+        {
+          "focus": null,
+          "layers": {
+            "main": [
+              [
+                797,
+                357,
+                1470,
+                804
+              ]
+            ],
+            "medium": [
+              [
+                1167,
+                521,
+                1470,
+                721
+              ],
+              [
+                850,
+                400,
+                1147,
+                597
+              ]
+            ],
+            "micro": [
+              [
+                797,
+                394,
+                850,
+                424
+              ],
+              [
+                903,
+                454,
+                953,
+                490
+              ],
+              [
+                1433,
+                547,
+                1487,
+                594
+              ],
+              [
+                1243,
+                781,
+                1313,
+                824
+              ]
+            ]
+          },
+          "size": [
+            1600,
+            1061
+          ]
+        },
+        {
+          "focus": [
+            733,
+            507
+          ],
+          "layers": {
+            "main": [
+              [
+                550,
+                317,
+                913,
+                694
+              ]
+            ],
+            "medium": [
+              [
+                600,
+                317,
+                817,
+                544
+              ],
+              [
+                713,
+                487,
+                830,
+                607
+              ]
+            ],
+            "micro": [
+              [
+                733,
+                417,
+                770,
+                437
+              ],
+              [
+                677,
+                440,
+                710,
+                467
+              ],
+              [
+                707,
+                577,
+                753,
+                607
+              ],
+              [
+                713,
+                484,
+                743,
+                537
+              ]
+            ]
+          },
+          "size": [
+            1600,
+            1061
+          ]
+        },
+        {
+          "focus": [
+            1213,
+            645
+          ],
+          "layers": {
+            "main": [
+              [
+                1030,
+                457,
+                1393,
+                834
+              ]
+            ],
+            "medium": [
+              [
+                1230,
+                527,
+                1393,
+                697
+              ],
+              [
+                1080,
+                607,
+                1297,
+                834
+              ]
+            ],
+            "micro": [
+              [
+                1183,
+                677,
+                1220,
+                697
+              ],
+              [
+                1287,
+                484,
+                1320,
+                510
+              ],
+              [
+                1107,
+                644,
+                1143,
+                677
+              ],
+              [
+                1243,
+                797,
+                1290,
+                827
+              ]
+            ]
+          },
+          "size": [
+            1600,
+            1061
+          ]
+        }
+      ]
+    }
+  ],
+  "regression_tests": {
+    "command": "python -m unittest -v test_build_02_2",
+    "passed": 6,
+    "failed": 0
+  },
+  "invalid_upload_checks": [
+    "corrupt JPG: cleared previous state then readable error",
+    "GIF disguised as JPG rejected",
+    "reset with no image remains empty"
+  ],
+  "limitations": [
+    "Windows hardware not available; validated on Linux Python 3.12 / Gradio 6.30 / Chromium",
+    "Blank or tiny images may produce fewer micro boxes; extreme aspect ratios cannot always satisfy pixel, area and shape constraints simultaneously",
+    "HTML and Python retain independent feature pipelines; coordinates need not match across implementations",
+    "Cloud browser disallows file URLs: exact HTML served locally, then offline for upload and focus checks"
+  ]
+}

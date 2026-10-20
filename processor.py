@@ -1,4 +1,4 @@
-"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.1.
+"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.2.
 
 The rectangles describe visual information, not recognized objects. No model,
 network access, or global random state is used.
@@ -17,6 +17,7 @@ MAX_IMAGE_SIZE = 1600
 ANALYSIS_SIZE = 512
 BOX_COLOR = (0, 80, 255)
 Box = tuple[int, int, int, int]
+Focus = tuple[float, float]
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -88,10 +89,28 @@ def _fit_box(
     return left, top, left + box_width, top + box_height
 
 
-def _fallback_boxes(width: int, height: int) -> list[Box]:
-    """A stable layout whose fallback details stay inside its main rectangle."""
-    main = _fit_box((0.22 * width, 0.22 * height, 0.78 * width, 0.78 * height),
-                    width, height, 0.08, 0.80)
+def _coerce_focus(focus: Focus | None, width: int, height: int) -> Focus | None:
+    """Validate and clamp a pixel focus; malformed/nonfinite points mean auto."""
+    if focus is None:
+        return None
+    try:
+        x, y = map(float, focus)
+        if not (math.isfinite(x) and math.isfinite(y)):
+            return None
+        return max(0.0, min(width - 1.0, x)), max(0.0, min(height - 1.0, y))
+    except (TypeError, ValueError):
+        return None
+
+
+def _fallback_boxes(width: int, height: int, focus: Focus | None = None) -> list[Box]:
+    """A stable local layout, centered on the requested point when supplied."""
+    if focus is None:
+        bounds = (0.22 * width, 0.22 * height, 0.78 * width, 0.78 * height)
+    else:
+        x, y = focus
+        bounds = (x - 0.18 * width, y - 0.18 * height,
+                  x + 0.18 * width, y + 0.18 * height)
+    main = _fit_box(bounds, width, height, 0.08, 0.80)
     return [main, *_detail_fallback(main, width, height)[:2]]
 
 
@@ -199,15 +218,22 @@ def _intersection_over_union(a: Box, b: Box) -> float:
     return intersection / max(union, 1)
 
 
-def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
+def _analyze_boxes(rgb: np.ndarray, focus: Focus | None = None) -> list[Box]:
     height, width = rgb.shape[:2]
     if width < 3 or height < 3 or float(np.std(rgb.astype(np.float32), axis=(0, 1)).max()) < 0.05:
-        return _fallback_boxes(width, height)
+        return _fallback_boxes(width, height, focus)
     subject = _subject_map(rgb)
     # Fine structure can support a coherent region, but cannot win by density.
     information = 0.97 * subject + 0.03 * _information_map(rgb) * subject
+    if focus is not None:
+        # A click is a visual preference, not an object/skin class. Local edges
+        # may compete even when the automatic background prior rejects them.
+        yy, xx = np.mgrid[:height, :width]
+        distance = ((xx - focus[0]) / max(width * 0.17, 1)) ** 2 + ((yy - focus[1]) / max(height * 0.17, 1)) ** 2
+        proximity = np.exp(-0.5 * distance)
+        information = (0.60 * subject + 0.40 * _information_map(rgb)) * (0.015 + 0.985 * proximity)
     if float(information.max()) < 1e-5 or float(information.sum()) < 1e-4:
-        return _fallback_boxes(width, height)
+        return _fallback_boxes(width, height, focus)
     candidates: list[tuple[float, float, float, float]] = []
     kernel = np.ones((max(3, round(min(width, height) * 0.016)) | 1,) * 2, np.uint8)
     support = None
@@ -239,6 +265,16 @@ def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
         peaks[max(0, y - radius_y):min(height, y + radius_y + 1),
               max(0, x - radius_x):min(width, x + radius_x + 1)] = 0
 
+    if focus is not None:
+        # Explicit local windows guarantee a candidate containing the click,
+        # including a smooth/dark click with no segmented component nearby.
+        fx, fy = focus
+        for fraction in (0.28, 0.36, 0.46, 0.56):
+            for dx, dy in ((0, 0), (-0.06, 0), (0.06, 0), (0, -0.06), (0, 0.06)):
+                cx, cy = fx + dx * width, fy + dy * height
+                candidates.append((cx - width * fraction / 2, cy - height * fraction / 2,
+                                   cx + width * fraction / 2, cy + height * fraction / 2))
+
     integral = cv2.integral(information)
     total = float(information.sum())
 
@@ -265,13 +301,21 @@ def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
         aspect = (x2 - x1) / max(y2 - y1, 1)
         penalty = (1 + 6 * max(0, area_fraction - 0.48) ** 1.3
                    + 0.10 * touch + 0.15 * math.log(aspect) ** 2)
+        if focus is not None:
+            center_distance = (((x1 + x2) / 2 - focus[0]) / max(width * 0.18, 1)) ** 2 + (((y1 + y2) / 2 - focus[1]) / max(height * 0.18, 1)) ** 2
+            penalty *= (1 + 1.8 * center_distance + 9 * max(0, area_fraction - 0.28))
         return (inside_mass / total / max(area_fraction, 1e-9) ** 0.65
                 * (0.5 + 0.5 * fill) * (0.65 + 0.35 * connectivity)
                 * (1 + 0.35 * min(contrast, 2)) / penalty)
 
     main_candidates = {_fit_box(box, width, height, 0.08, 0.80) for box in candidates}
+    if focus is not None:
+        main_candidates = {b for b in main_candidates
+                           if b[0] <= focus[0] < b[2] and b[1] <= focus[1] < b[3]
+                           and abs((b[0] + b[2]) / 2 - focus[0]) <= max(width * 0.18, 1)
+                           and abs((b[1] + b[3]) / 2 - focus[1]) <= max(height * 0.18, 1)}
     if not main_candidates:
-        return _fallback_boxes(width, height)
+        return _fallback_boxes(width, height, focus)
     main = max(sorted(main_candidates), key=score)
     mx1, my1, mx2, my2 = main
     mw, mh = mx2 - mx1, my2 - my1
@@ -313,28 +357,48 @@ def _analyze_boxes(rgb: np.ndarray) -> list[Box]:
     return [main, *selected]
 
 
-def detect_boxes(image: Image.Image) -> list[Box]:
+def detect_boxes(image: Image.Image, focus: Focus | None = None) -> list[Box]:
     """Return one main box followed by 2–4 auxiliary boxes (exclusive right/bottom).
 
     Analysis runs at up to 512 pixels; boxes are returned in the input image's
-    coordinates. Flat or otherwise unusable analysis always gets a stable layout.
+    oriented coordinates, as is optional focus. Unusable analysis gets a stable layout.
     """
     if not isinstance(image, Image.Image):
         raise TypeError("Expected a Pillow image.")
+    image = resize_image(image, max(image.size))
     width, height = image.size
+    focus = _coerce_focus(focus, width, height)
     try:
         small = resize_image(image, ANALYSIS_SIZE)
-        boxes = _analyze_boxes(np.asarray(small))
+        small_focus = None if focus is None else (focus[0] * small.width / width,
+                                                 focus[1] * small.height / height)
+        boxes = _analyze_boxes(np.asarray(small), small_focus)
         scale_x, scale_y = width / small.width, height / small.height
-        return [
+        mapped = [
             _fit_box((x1 * scale_x, y1 * scale_y, x2 * scale_x, y2 * scale_y),
                      width, height, 0.08 if index == 0 else 0.008,
                      0.80 if index == 0 else 0.14)
             for index, (x1, y1, x2, y2) in enumerate(boxes)
         ]
+        if focus is not None:
+            # Integer fitting can shift a 1-pixel-wide extreme-aspect candidate
+            # away from the point. Translate it without changing its dimensions.
+            x1, y1, x2, y2 = mapped[0]
+            bw, bh = x2 - x1, y2 - y1
+            if focus[0] < x1:
+                x1 = math.floor(focus[0])
+            elif focus[0] >= x2:
+                x1 = math.floor(focus[0]) - bw + 1
+            if focus[1] < y1:
+                y1 = math.floor(focus[1])
+            elif focus[1] >= y2:
+                y1 = math.floor(focus[1]) - bh + 1
+            x1, y1 = max(0, min(width - bw, x1)), max(0, min(height - bh, y1))
+            mapped[0] = (x1, y1, x1 + bw, y1 + bh)
+        return mapped
     except Exception:
         _LOGGER.warning("Image analysis failed; using the stable fallback layout.", exc_info=True)
-        return _fallback_boxes(width, height)
+        return _fallback_boxes(width, height, focus)
 
 
 def _near_duplicate(a: Box, b: Box) -> bool:
@@ -362,7 +426,8 @@ def _medium_pool(boxes: list[Box], width: int, height: int) -> list[Box]:
     return []
 
 
-def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) -> list[Box]:
+def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int,
+                 focus: Focus | None = None) -> list[Box]:
     """Build a shared, seeded detail sequence, independent of Structure.
 
     Five information peaks become small clusters. Weighted sampling stays local
@@ -379,6 +444,13 @@ def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) ->
         return []
     information, subject = _information_map(rgb), _subject_map(rgb)
     weights = information ** 1.3 * (0.05 + 0.95 * subject ** 1.4)
+    if focus is not None:
+        # Keep the existing peak/cluster algorithm; change only its search weight.
+        yy, xx = np.mgrid[:small.height, :small.width]
+        fx, fy = focus[0] * small.width / image.width, focus[1] * small.height / image.height
+        proximity = np.exp(-0.5 * (((xx - fx) / max(small.width * 0.14, 1)) ** 2
+                                  + ((yy - fy) / max(small.height * 0.14, 1)) ** 2))
+        weights = information ** 1.3 * (0.25 + 0.75 * subject) * (0.015 + 0.985 * proximity)
     if float(weights.max()) < 1e-6:
         return []
 
@@ -461,13 +533,16 @@ def _micro_boxes(image: Image.Image, main: Box, medium: list[Box], seed: int) ->
     return selected
 
 
-def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0) -> dict[str, list[Box]]:
-    """Return the unchanged main, 1–3 medium boxes, and 0–9 local micro boxes.
+def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0,
+                  focus: Focus | None = None) -> dict[str, list[Box]]:
+    """Return 1 main, 1–3 medium and 0–9 micro boxes in oriented image pixels.
 
-    Structure controls layer density only. Seed controls micro variations only;
-    both leave the Build 01.1 main-box algorithm and its location untouched.
+    Optional focus uses those same pixels. Structure changes density, seed
+    changes detail variations; neither moves the chosen main box.
     """
-    boxes = detect_boxes(image)
+    image = resize_image(image, max(image.size))
+    focus = _coerce_focus(focus, image.width, image.height)
+    boxes = detect_boxes(image, focus)
     value = float(structure)
     value = min(100.0, max(0.0, value)) if math.isfinite(value) else 45.0
     t = value / 100
@@ -478,16 +553,26 @@ def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0) -> d
     micro: list[Box] = []
     if micro_count:
         try:
-            micro = _micro_boxes(image, boxes[0], pool, seed)[:micro_count]
+            micro = _micro_boxes(image, boxes[0], pool, seed, focus)[:micro_count]
         except Exception:
             _LOGGER.warning("Detail analysis failed; retaining main and medium layers.", exc_info=True)
     return {"main": [boxes[0]], "medium": medium, "micro": micro}
 
 
-def process_image(image: Image.Image, structure: float = 45, seed: int = 0) -> Image.Image:
-    """Draw the fixed-blue main, medium, and micro layers on a resized copy."""
+def process_image(image: Image.Image, structure: float = 45, seed: int = 0,
+                  focus: Focus | None = None) -> Image.Image:
+    """Overlay blue boxes without crop/pad/upscale.
+
+    Focus is in EXIF-oriented source-image pixels. It is mapped to the output
+    only here when the longest edge is reduced to 1600 pixels.
+    """
+    oriented_size = ImageOps.exif_transpose(image).size
+    focus = _coerce_focus(focus, *oriented_size)
     result = resize_image(image)
-    layers = detect_layers(result, structure, seed)
+    if focus is not None:
+        focus = (focus[0] * result.width / oriented_size[0],
+                 focus[1] * result.height / oriented_size[1])
+    layers = detect_layers(result, structure, seed, focus)
     draw = ImageDraw.Draw(result)
     line_width = 2 if min(result.size) >= 120 else 1
     for name, boxes in layers.items():
