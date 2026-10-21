@@ -1,0 +1,3772 @@
+{
+  "version": "Build 02.3",
+  "status": "ready for user acceptance",
+  "architecture": "single Python image core + Gradio web entry; standalone HTML frozen at Build02.2",
+  "baseline_commit": "24521bacb8cfcfb3bddf1358da224002d12be055",
+  "detector_seed": 0,
+  "word_state": "independent deterministic LCG initialized from normalized image pixels",
+  "runtime": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "browser": "Chromium",
+    "windows_hardware_tested": false
+  },
+  "regression_tests": {
+    "command": "python -m unittest -v test_build_02_2 test_build_02_3",
+    "passed": 14,
+    "failed": 0
+  },
+  "unchanged_baseline_functions": [
+    "resize_image",
+    "_fit_box",
+    "_coerce_focus",
+    "_fallback_boxes",
+    "_detail_fallback",
+    "_normalized",
+    "_information_map",
+    "_box_blur",
+    "_subject_map",
+    "_intersection_over_union",
+    "_analyze_boxes",
+    "detect_boxes",
+    "_near_duplicate",
+    "_medium_pool",
+    "_micro_boxes",
+    "detect_layers"
+  ],
+  "baseline_layer_comparisons": [
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            497,
+            706,
+            788,
+            1071
+          ]
+        ],
+        "medium": [
+          [
+            573,
+            802,
+            749,
+            1023
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            497,
+            706,
+            788,
+            1071
+          ]
+        ],
+        "medium": [
+          [
+            573,
+            802,
+            749,
+            1023
+          ],
+          [
+            561,
+            952,
+            655,
+            1071
+          ]
+        ],
+        "micro": [
+          [
+            757,
+            719,
+            788,
+            737
+          ],
+          [
+            675,
+            776,
+            705,
+            798
+          ],
+          [
+            663,
+            815,
+            695,
+            843
+          ],
+          [
+            681,
+            887,
+            722,
+            913
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            497,
+            706,
+            788,
+            1071
+          ]
+        ],
+        "medium": [
+          [
+            573,
+            802,
+            749,
+            1023
+          ],
+          [
+            561,
+            952,
+            655,
+            1071
+          ],
+          [
+            520,
+            742,
+            649,
+            903
+          ]
+        ],
+        "micro": [
+          [
+            757,
+            719,
+            788,
+            737
+          ],
+          [
+            675,
+            776,
+            705,
+            798
+          ],
+          [
+            663,
+            815,
+            695,
+            843
+          ],
+          [
+            681,
+            887,
+            722,
+            913
+          ],
+          [
+            554,
+            821,
+            579,
+            867
+          ],
+          [
+            729,
+            725,
+            758,
+            759
+          ],
+          [
+            690,
+            821,
+            713,
+            850
+          ],
+          [
+            692,
+            864,
+            727,
+            879
+          ],
+          [
+            701,
+            757,
+            742,
+            788
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ],
+          [
+            428,
+            364,
+            544,
+            535
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ],
+          [
+            455,
+            428,
+            480,
+            474
+          ],
+          [
+            376,
+            466,
+            411,
+            481
+          ],
+          [
+            480,
+            427,
+            506,
+            469
+          ],
+          [
+            463,
+            557,
+            482,
+            576
+          ],
+          [
+            475,
+            485,
+            498,
+            519
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            454,
+            746,
+            714,
+            1156
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            896,
+            666,
+            1083
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            454,
+            746,
+            714,
+            1156
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            896,
+            666,
+            1083
+          ],
+          [
+            502,
+            746,
+            621,
+            933
+          ]
+        ],
+        "micro": [
+          [
+            593,
+            905,
+            624,
+            923
+          ],
+          [
+            551,
+            835,
+            581,
+            857
+          ],
+          [
+            550,
+            909,
+            582,
+            937
+          ],
+          [
+            579,
+            995,
+            620,
+            1021
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            454,
+            746,
+            714,
+            1156
+          ]
+        ],
+        "medium": [
+          [
+            547,
+            896,
+            666,
+            1083
+          ],
+          [
+            502,
+            746,
+            621,
+            933
+          ],
+          [
+            579,
+            778,
+            691,
+            955
+          ]
+        ],
+        "micro": [
+          [
+            593,
+            905,
+            624,
+            923
+          ],
+          [
+            551,
+            835,
+            581,
+            857
+          ],
+          [
+            550,
+            909,
+            582,
+            937
+          ],
+          [
+            579,
+            995,
+            620,
+            1021
+          ],
+          [
+            695,
+            823,
+            720,
+            869
+          ],
+          [
+            580,
+            911,
+            609,
+            945
+          ],
+          [
+            577,
+            972,
+            612,
+            987
+          ],
+          [
+            613,
+            991,
+            631,
+            1019
+          ],
+          [
+            577,
+            812,
+            600,
+            846
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            791,
+            355,
+            1466,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1159,
+            518,
+            1466,
+            721
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            791,
+            355,
+            1466,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1159,
+            518,
+            1466,
+            721
+          ],
+          [
+            845,
+            400,
+            1142,
+            597
+          ]
+        ],
+        "micro": [
+          [
+            778,
+            398,
+            831,
+            428
+          ],
+          [
+            927,
+            454,
+            977,
+            491
+          ],
+          [
+            1381,
+            530,
+            1435,
+            578
+          ],
+          [
+            1239,
+            778,
+            1308,
+            822
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            791,
+            355,
+            1466,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1159,
+            518,
+            1466,
+            721
+          ],
+          [
+            845,
+            400,
+            1142,
+            597
+          ],
+          [
+            1115,
+            390,
+            1406,
+            583
+          ]
+        ],
+        "micro": [
+          [
+            778,
+            398,
+            831,
+            428
+          ],
+          [
+            927,
+            454,
+            977,
+            491
+          ],
+          [
+            1381,
+            530,
+            1435,
+            578
+          ],
+          [
+            1239,
+            778,
+            1308,
+            822
+          ],
+          [
+            789,
+            581,
+            832,
+            658
+          ],
+          [
+            1229,
+            759,
+            1287,
+            785
+          ],
+          [
+            847,
+            402,
+            875,
+            432
+          ],
+          [
+            1413,
+            554,
+            1466,
+            578
+          ],
+          [
+            985,
+            425,
+            1024,
+            483
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            525,
+            359,
+            979,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            706,
+            436,
+            978,
+            621
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            525,
+            359,
+            979,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            706,
+            436,
+            978,
+            621
+          ],
+          [
+            628,
+            493,
+            775,
+            593
+          ]
+        ],
+        "micro": [
+          [
+            753,
+            400,
+            788,
+            420
+          ],
+          [
+            694,
+            438,
+            728,
+            463
+          ],
+          [
+            764,
+            566,
+            801,
+            598
+          ],
+          [
+            866,
+            452,
+            913,
+            482
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            525,
+            359,
+            979,
+            662
+          ]
+        ],
+        "medium": [
+          [
+            706,
+            436,
+            978,
+            621
+          ],
+          [
+            628,
+            493,
+            775,
+            593
+          ],
+          [
+            561,
+            389,
+            761,
+            523
+          ]
+        ],
+        "micro": [
+          [
+            753,
+            400,
+            788,
+            420
+          ],
+          [
+            694,
+            438,
+            728,
+            463
+          ],
+          [
+            764,
+            566,
+            801,
+            598
+          ],
+          [
+            866,
+            452,
+            913,
+            482
+          ],
+          [
+            646,
+            422,
+            675,
+            474
+          ],
+          [
+            832,
+            439,
+            871,
+            457
+          ],
+          [
+            740,
+            583,
+            776,
+            599
+          ],
+          [
+            784,
+            413,
+            820,
+            457
+          ],
+          [
+            838,
+            455,
+            878,
+            479
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 0,
+      "layers": {
+        "main": [
+          [
+            975,
+            499,
+            1429,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1078,
+            568,
+            1225,
+            668
+          ]
+        ],
+        "micro": []
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 50,
+      "layers": {
+        "main": [
+          [
+            975,
+            499,
+            1429,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1078,
+            568,
+            1225,
+            668
+          ],
+          [
+            1178,
+            633,
+            1325,
+            733
+          ]
+        ],
+        "micro": [
+          [
+            1387,
+            519,
+            1422,
+            539
+          ],
+          [
+            1297,
+            495,
+            1331,
+            520
+          ],
+          [
+            1055,
+            628,
+            1092,
+            660
+          ],
+          [
+            1387,
+            629,
+            1434,
+            659
+          ]
+        ]
+      }
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 100,
+      "layers": {
+        "main": [
+          [
+            975,
+            499,
+            1429,
+            802
+          ]
+        ],
+        "medium": [
+          [
+            1078,
+            568,
+            1225,
+            668
+          ],
+          [
+            1178,
+            633,
+            1325,
+            733
+          ],
+          [
+            1193,
+            523,
+            1389,
+            654
+          ]
+        ],
+        "micro": [
+          [
+            1387,
+            519,
+            1422,
+            539
+          ],
+          [
+            1297,
+            495,
+            1331,
+            520
+          ],
+          [
+            1055,
+            628,
+            1092,
+            660
+          ],
+          [
+            1387,
+            629,
+            1434,
+            659
+          ],
+          [
+            1068,
+            762,
+            1097,
+            814
+          ],
+          [
+            1388,
+            614,
+            1427,
+            632
+          ],
+          [
+            1416,
+            606,
+            1450,
+            640
+          ],
+          [
+            1100,
+            772,
+            1121,
+            791
+          ],
+          [
+            1259,
+            487,
+            1287,
+            521
+          ]
+        ]
+      }
+    }
+  ],
+  "records": [
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "A_thin_off",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_A_thin_off.png",
+      "sha256": "f569ec8aca024bb8a7cf03149f11ea26e0b099bcb0378852c35d5d5fff6aad3a",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Thin",
+        "label_mode": "Off",
+        "word": "REGRET",
+        "custom_text": null
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": ""
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "B_medium_emotion_pool",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_B_medium_emotion_pool.png",
+      "sha256": "ed979e23d73c8f19182205f23f16bd1af773c99e51450af05443485381752d22",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "REGRET",
+        "custom_text": null
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "REGRET",
+          "bounds": [
+            299,
+            317,
+            364,
+            329
+          ],
+          "position": [
+            299,
+            314
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "REGRET",
+          "bounds": [
+            358,
+            408,
+            423,
+            420
+          ],
+          "position": [
+            358,
+            405
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "REGRET",
+          "bounds": [
+            420,
+            495,
+            485,
+            507
+          ],
+          "position": [
+            420,
+            492
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "REGRET"
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "C_thick_custom_melancholy",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_C_thick_custom_melancholy.png",
+      "sha256": "553969794e90e7a7089354966c7d2a6bc7abef8e40ee8562b3a420f2d641eb54",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Thick",
+        "label_mode": "Custom Text",
+        "word": "REGRET",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "MELANCHOLY",
+          "bounds": [
+            299,
+            315,
+            408,
+            327
+          ],
+          "position": [
+            299,
+            312
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "MELANCHOLY",
+          "bounds": [
+            358,
+            406,
+            467,
+            418
+          ],
+          "position": [
+            358,
+            403
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "MELANCHOLY",
+          "bounds": [
+            420,
+            493,
+            529,
+            505
+          ],
+          "position": [
+            420,
+            490
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "MELANCHOLY"
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "D_medium_pool_shuffle_1",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_D_medium_pool_shuffle_1.png",
+      "sha256": "9fca37617d22b52a8a00295d95524ac37cf66e4c71c3830369f47d9e611b1b14",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "AFFECTION",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "AFFECTION",
+          "bounds": [
+            299,
+            317,
+            389,
+            329
+          ],
+          "position": [
+            299,
+            314
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "AFFECTION",
+          "bounds": [
+            358,
+            408,
+            448,
+            420
+          ],
+          "position": [
+            358,
+            405
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "AFFECTION",
+          "bounds": [
+            420,
+            495,
+            510,
+            507
+          ],
+          "position": [
+            420,
+            492
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "AFFECTION"
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "D_medium_pool_shuffle_2",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_D_medium_pool_shuffle_2.png",
+      "sha256": "a469e5169ceb6312f3437199a502b9576756b87425150391803d2a8db9fd7148",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "LONELINESS",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "LONELINESS",
+          "bounds": [
+            299,
+            317,
+            398,
+            329
+          ],
+          "position": [
+            299,
+            314
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "LONELINESS",
+          "bounds": [
+            358,
+            408,
+            457,
+            420
+          ],
+          "position": [
+            358,
+            405
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "LONELINESS",
+          "bounds": [
+            420,
+            495,
+            519,
+            507
+          ],
+          "position": [
+            420,
+            492
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "LONELINESS"
+    },
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        429,
+        518
+      ],
+      "click": {
+        "mapped": [
+          429,
+          518
+        ],
+        "geometry": {
+          "cx": 375.22459722702143,
+          "cy": 489.80378585003456,
+          "scale": 0.6578589322736696,
+          "natural": [
+            909,
+            1447
+          ]
+        },
+        "native": {
+          "x": 375,
+          "y": 489,
+          "left": 93,
+          "top": 148.375,
+          "width": 598,
+          "height": 951.921875
+        }
+      },
+      "key": "D_medium_pool_shuffle_3",
+      "file": "detection_01_portrait_build_02_3_gradio_s050_focus_x0429_y0518_D_medium_pool_shuffle_3.png",
+      "sha256": "e2dabf5f2820ee9682f9a9c0b7507a6f0449a2f3717dba4d51e13859c220e116",
+      "detectionCount": 2,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            909,
+            1447
+          ],
+          "png_sha256": "d5ada4aa8b137c437f654af088ebccc4ed66cca32cc03224b762c42f93975131",
+          "rgb_sha256": "eba3d3946f22546084e8cf808fdef4a34c0d000672f0f0c54939aae879ec1f18"
+        },
+        "layers": {
+          "main": [
+            [
+              299,
+              333,
+              568,
+              729
+            ]
+          ],
+          "medium": [
+            [
+              358,
+              424,
+              446,
+              552
+            ],
+            [
+              420,
+              511,
+              508,
+              639
+            ]
+          ],
+          "micro": [
+            [
+              435,
+              563,
+              466,
+              581
+            ],
+            [
+              458,
+              508,
+              488,
+              530
+            ],
+            [
+              392,
+              533,
+              424,
+              561
+            ],
+            [
+              379,
+              491,
+              420,
+              517
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "FEAR",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            299,
+            333,
+            568,
+            729
+          ]
+        ],
+        "medium": [
+          [
+            358,
+            424,
+            446,
+            552
+          ],
+          [
+            420,
+            511,
+            508,
+            639
+          ]
+        ],
+        "micro": [
+          [
+            435,
+            563,
+            466,
+            581
+          ],
+          [
+            458,
+            508,
+            488,
+            530
+          ],
+          [
+            392,
+            533,
+            424,
+            561
+          ],
+          [
+            379,
+            491,
+            420,
+            517
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "FEAR",
+          "bounds": [
+            299,
+            317,
+            340,
+            329
+          ],
+          "position": [
+            299,
+            314
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "FEAR",
+          "bounds": [
+            358,
+            408,
+            399,
+            420
+          ],
+          "position": [
+            358,
+            405
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "FEAR",
+          "bounds": [
+            420,
+            495,
+            461,
+            507
+          ],
+          "position": [
+            420,
+            492
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "FEAR"
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "A_thin_off",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_A_thin_off.png",
+      "sha256": "d9bf8de8b04dfbb60075768048cf7c414be24114081ff85aa31d112ab46d14ef",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Thin",
+        "label_mode": "Off",
+        "word": "ENVY",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": ""
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "B_medium_emotion_pool",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_B_medium_emotion_pool.png",
+      "sha256": "c6edf59631c462a13c44ccf5c2d94bdd0a4800550950cc6c72782f0733996769",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "ENVY",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "ENVY",
+          "bounds": [
+            518,
+            338,
+            569,
+            352
+          ],
+          "position": [
+            518,
+            334
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "ENVY",
+          "bounds": [
+            700,
+            415,
+            751,
+            429
+          ],
+          "position": [
+            700,
+            411
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "ENVY",
+          "bounds": [
+            554,
+            368,
+            605,
+            382
+          ],
+          "position": [
+            554,
+            364
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "ENVY"
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "C_thick_custom_melancholy",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_C_thick_custom_melancholy.png",
+      "sha256": "765e3751f58e6cc98e080da3f75bf1b486480ed72cbf73de771caa82bc419c77",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Thick",
+        "label_mode": "Custom Text",
+        "word": "ENVY",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "MELANCHOLY",
+          "bounds": [
+            518,
+            336,
+            647,
+            350
+          ],
+          "position": [
+            518,
+            332
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "MELANCHOLY",
+          "bounds": [
+            700,
+            413,
+            829,
+            427
+          ],
+          "position": [
+            700,
+            409
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "MELANCHOLY",
+          "bounds": [
+            554,
+            366,
+            683,
+            380
+          ],
+          "position": [
+            554,
+            362
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "MELANCHOLY"
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "D_medium_pool_shuffle_1",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_D_medium_pool_shuffle_1.png",
+      "sha256": "94d7d6de112a408f9dde42ff0481983f9afc6617f2819e57f705cbbcef0b1433",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "AFFECTION",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "AFFECTION",
+          "bounds": [
+            518,
+            338,
+            625,
+            352
+          ],
+          "position": [
+            518,
+            334
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "AFFECTION",
+          "bounds": [
+            700,
+            415,
+            807,
+            429
+          ],
+          "position": [
+            700,
+            411
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "AFFECTION",
+          "bounds": [
+            554,
+            368,
+            661,
+            382
+          ],
+          "position": [
+            554,
+            364
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "AFFECTION"
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "D_medium_pool_shuffle_2",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_D_medium_pool_shuffle_2.png",
+      "sha256": "458bc6aca74015673b6bbfdbda6ac401161a43435a7f2ea71150828f3eaa004c",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "GRATITUDE",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "GRATITUDE",
+          "bounds": [
+            518,
+            338,
+            626,
+            352
+          ],
+          "position": [
+            518,
+            334
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "GRATITUDE",
+          "bounds": [
+            700,
+            415,
+            808,
+            429
+          ],
+          "position": [
+            700,
+            411
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "GRATITUDE",
+          "bounds": [
+            554,
+            368,
+            662,
+            382
+          ],
+          "position": [
+            554,
+            364
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "GRATITUDE"
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        746,
+        507
+      ],
+      "click": {
+        "mapped": [
+          746,
+          507
+        ],
+        "geometry": {
+          "cx": 372.9388401272385,
+          "cy": 589.6128504948163,
+          "scale": 0.373748232799246,
+          "natural": [
+            1600,
+            1061
+          ]
+        },
+        "native": {
+          "x": 372,
+          "y": 589,
+          "left": 93,
+          "top": 399.375,
+          "width": 598,
+          "height": 396.546875
+        }
+      },
+      "key": "D_medium_pool_shuffle_3",
+      "file": "detection_02_cow_build_02_3_gradio_s050_focus_x0746_y0507_D_medium_pool_shuffle_3.png",
+      "sha256": "d234085d48f59fa226a28842be23bdc86cd06b9102050f5a11daac8f2c52198a",
+      "detectionCount": 5,
+      "renderer": {
+        "image": {
+          "kind": "PIL",
+          "size": [
+            1600,
+            1061
+          ],
+          "png_sha256": "f66580e0b2738c4554a61cd48f675f94dc52e63ca0f4774e1b4a817b6d92d97e",
+          "rgb_sha256": "2e361d4693452622fed4075a17db44912035de1abb444c0db36b057af4481cff"
+        },
+        "layers": {
+          "main": [
+            [
+              518,
+              356,
+              972,
+              659
+            ]
+          ],
+          "medium": [
+            [
+              700,
+              433,
+              972,
+              618
+            ],
+            [
+              554,
+              386,
+              754,
+              520
+            ]
+          ],
+          "micro": [
+            [
+              709,
+              425,
+              744,
+              445
+            ],
+            [
+              756,
+              413,
+              790,
+              438
+            ],
+            [
+              705,
+              569,
+              742,
+              601
+            ],
+            [
+              825,
+              452,
+              872,
+              482
+            ]
+          ]
+        },
+        "stroke_width": "Medium",
+        "label_mode": "Emotion Pool",
+        "word": "JOY",
+        "custom_text": "MELANCHOLY"
+      },
+      "layers": {
+        "main": [
+          [
+            518,
+            356,
+            972,
+            659
+          ]
+        ],
+        "medium": [
+          [
+            700,
+            433,
+            972,
+            618
+          ],
+          [
+            554,
+            386,
+            754,
+            520
+          ]
+        ],
+        "micro": [
+          [
+            709,
+            425,
+            744,
+            445
+          ],
+          [
+            756,
+            413,
+            790,
+            438
+          ],
+          [
+            705,
+            569,
+            742,
+            601
+          ],
+          [
+            825,
+            452,
+            872,
+            482
+          ]
+        ]
+      },
+      "labels": [
+        {
+          "tier": "main",
+          "index": 0,
+          "text": "JOY",
+          "bounds": [
+            518,
+            334,
+            551,
+            352
+          ],
+          "position": [
+            519,
+            330
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 0,
+          "text": "JOY",
+          "bounds": [
+            700,
+            411,
+            733,
+            429
+          ],
+          "position": [
+            701,
+            407
+          ]
+        },
+        {
+          "tier": "medium",
+          "index": 1,
+          "text": "JOY",
+          "bounds": [
+            554,
+            364,
+            587,
+            382
+          ],
+          "position": [
+            555,
+            360
+          ]
+        }
+      ],
+      "layer_counts": {
+        "main": 1,
+        "medium": 2,
+        "micro": 4
+      },
+      "download_matches_pillow_pixels": true,
+      "resolved_text": "JOY"
+    }
+  ],
+  "browser_checks": [
+    "overlay detection count unchanged",
+    "cached focused coordinates invariant",
+    "native click mapping",
+    "12 real-browser PNG downloads",
+    "custom-only textbox",
+    "pool-only shuffle",
+    "reset automatic coordinates",
+    "new upload clears focus"
+  ],
+  "browser_errors": [],
+  "external_requests": [],
+  "overlay_detection_calls": 0,
+  "historical_html_unchanged": true,
+  "label_font": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  "supplemental": {
+    "gradio-state-records.json": {
+      "checks": [
+        "session word/focus/layer isolation",
+        "Structure0/100 retain Focus and word",
+        "Structure50 restores same cached coordinates",
+        "Reset restores auto",
+        "new upload clears focus"
+      ],
+      "portraitFocus": [
+        429,
+        518
+      ],
+      "density": [
+        {
+          "structure": 0,
+          "layers": {
+            "main": [
+              [
+                299,
+                333,
+                568,
+                729
+              ]
+            ],
+            "medium": [
+              [
+                358,
+                424,
+                446,
+                552
+              ]
+            ],
+            "micro": []
+          },
+          "focus": [
+            429,
+            518
+          ]
+        },
+        {
+          "structure": 100,
+          "layers": {
+            "main": [
+              [
+                299,
+                333,
+                568,
+                729
+              ]
+            ],
+            "medium": [
+              [
+                358,
+                424,
+                446,
+                552
+              ],
+              [
+                420,
+                511,
+                508,
+                639
+              ],
+              [
+                428,
+                364,
+                544,
+                535
+              ]
+            ],
+            "micro": [
+              [
+                435,
+                563,
+                466,
+                581
+              ],
+              [
+                458,
+                508,
+                488,
+                530
+              ],
+              [
+                392,
+                533,
+                424,
+                561
+              ],
+              [
+                379,
+                491,
+                420,
+                517
+              ],
+              [
+                455,
+                428,
+                480,
+                474
+              ],
+              [
+                376,
+                466,
+                411,
+                481
+              ],
+              [
+                480,
+                427,
+                506,
+                469
+              ],
+              [
+                461,
+                557,
+                480,
+                576
+              ],
+              [
+                475,
+                485,
+                498,
+                519
+              ]
+            ]
+          },
+          "focus": [
+            429,
+            518
+          ]
+        },
+        {
+          "structure": 50,
+          "layers": {
+            "main": [
+              [
+                299,
+                333,
+                568,
+                729
+              ]
+            ],
+            "medium": [
+              [
+                358,
+                424,
+                446,
+                552
+              ],
+              [
+                420,
+                511,
+                508,
+                639
+              ]
+            ],
+            "micro": [
+              [
+                435,
+                563,
+                466,
+                581
+              ],
+              [
+                458,
+                508,
+                488,
+                530
+              ],
+              [
+                392,
+                533,
+                424,
+                561
+              ],
+              [
+                379,
+                491,
+                420,
+                517
+              ]
+            ]
+          },
+          "focus": [
+            429,
+            518
+          ]
+        }
+      ],
+      "firstWord": "REGRET",
+      "secondSessionShuffledWord": "AFFECTION",
+      "errors": [],
+      "external": []
+    },
+    "gradio-clipboard-records.json": {
+      "status": "passed",
+      "binding": "custom.change",
+      "appSourceSha256": "aca20a85f811ae2c8b9bc6e57323c7de5c3d5e49faa067cdfd9841aa748f8e10",
+      "typingCases": [
+        {
+          "typed": "MELANCHOLY",
+          "fieldValue": "MELANCHOLY",
+          "renderedText": "MELANCHOLY"
+        },
+        {
+          "typed": "a quiet kind of sorrow",
+          "fieldValue": "A QUIET KIND OF SORROW",
+          "renderedText": "A QUIET KIND OF SORROW"
+        }
+      ],
+      "checks": [
+        "fast native typing retains full MELANCHOLY",
+        "multiword lowercase phrase uppercases without prefix loss",
+        "trusted Ctrl+V clipboard paste of80characters",
+        "native maxlength32",
+        "field and rendered text uppercase32A",
+        "cached Focus coordinates invariant",
+        "Detection count unchanged",
+        "no frontend errors"
+      ],
+      "paste": {
+        "trusted": true,
+        "length": 80
+      },
+      "nativeLength": 32,
+      "fieldValue": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "renderedText": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "focus": [
+        429,
+        518
+      ],
+      "detectionCount": 2,
+      "errors": [],
+      "external": []
+    }
+  },
+  "followup_validation": {
+    "binding": "custom.change",
+    "report": "gradio-clipboard-records.json",
+    "scope": "TextBox binding fix; existing12 accepted PNGs and renderer unchanged",
+    "passed": true
+  },
+  "resolved_issues": [
+    {
+      "issue": "Async server text-prefix replies overwrote later typed characters",
+      "fix": "Custom Text callbacks return the rendered image only; field uppercase is local on blur",
+      "verification": "Native MELANCHOLY and multiword input remain complete"
+    },
+    {
+      "issue": "Gradio6.30 input event did not observe native paste",
+      "fix": "Observe value change; redraw cached Overlay only",
+      "verification": "Real clipboard Ctrl+V of80 characters produces32 uppercase characters without Detection"
+    }
+  ]
+}

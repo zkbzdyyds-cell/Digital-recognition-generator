@@ -63,7 +63,7 @@ class CanvasGeometryTests(unittest.TestCase):
             with self.subTest(size=size):
                 image = structured_image(size)
                 source = np.asarray(resize_image(image))
-                result = process_image(image, structure=50, seed=0)
+                result = process_image(image, structure=50, seed=0, label_mode="Off")
                 output = np.asarray(result)
                 self.assertEqual(output.shape, source.shape)
                 changed = np.any(output != source, axis=2)

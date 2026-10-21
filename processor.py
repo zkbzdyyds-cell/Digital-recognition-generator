@@ -1,4 +1,4 @@
-"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.2.
+"""Deterministic, CPU-only pseudo detection for image-observer-v1 Build 02.3.
 
 The rectangles describe visual information, not recognized objects. No model,
 network access, or global random state is used.
@@ -6,19 +6,203 @@ network access, or global random state is used.
 
 import logging
 import math
+import os
+import re
+from functools import lru_cache
 from itertools import combinations
+from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 MAX_IMAGE_SIZE = 1600
 ANALYSIS_SIZE = 512
 BOX_COLOR = (0, 80, 255)
+STROKE_WIDTHS = {"Thin": 1, "Medium": 2, "Thick": 4}
+LABEL_MODES = ("Off", "Emotion Pool", "Custom Text")
+CUSTOM_TEXT_MAX_LENGTH = 32
+# This is the complete pool. Label selection is deliberately unrelated to image
+# information, detected object categories, and the Detection random sequence.
+EMOTION_POOL = (
+    "MELANCHOLY", "HESITATION", "SORROW", "UNEASE", "ANXIETY", "GRIEF",
+    "REGRET", "SHAME", "GUILT", "JEALOUSY", "ENVY", "LONELINESS", "FEAR",
+    "DREAD", "ANGER", "FRUSTRATION", "SADNESS", "JOY", "DELIGHT", "RELIEF",
+    "HOPE", "GRATITUDE", "AFFECTION", "TENDERNESS", "NOSTALGIA", "AWE",
+    "SERENITY", "CALM", "AMBIVALENCE", "DETACHMENT",
+)
 Box = tuple[int, int, int, int]
 Focus = tuple[float, float]
 _LOGGER = logging.getLogger(__name__)
+
+
+def create_word_state(seed: int = 0) -> dict[str, str | int]:
+    """Initialize a session's independent, reproducible emotion-word sequence."""
+    state = (1664525 * (int(seed) & 0xFFFFFFFF) + 1013904223) & 0xFFFFFFFF
+    return {"word": EMOTION_POOL[state % len(EMOTION_POOL)], "rng_state": state}
+
+
+def shuffle_word(state: dict[str, str | int] | None) -> dict[str, str | int]:
+    """Advance only the word state, returning a new word different from before."""
+    current = dict(state) if state else create_word_state()
+    word = current.get("word")
+    if word not in EMOTION_POOL:
+        current = create_word_state()
+        word = current["word"]
+    next_state = (1664525 * (int(current["rng_state"]) & 0xFFFFFFFF)
+                  + 1013904223) & 0xFFFFFFFF
+    # Select from the other 29 entries without retry loops or shared RNG state.
+    index = next_state % (len(EMOTION_POOL) - 1)
+    if index >= EMOTION_POOL.index(word):
+        index += 1
+    return {"word": EMOTION_POOL[index], "rng_state": next_state}
+
+
+def clean_custom_text(text: str | None) -> str:
+    """Uppercase a short English phrase; 32 characters is the hard render limit."""
+    # Bound work even for programmatic input; the UI also exposes maxlength=32.
+    text = re.sub(r"[^A-Za-z '\-]+", " ", str(text or "")[:256])
+    return " ".join(text.upper().split())[:CUSTOM_TEXT_MAX_LENGTH].strip()
+
+
+def _stroke_pixels(stroke_width: str | int) -> int:
+    if isinstance(stroke_width, str):
+        return STROKE_WIDTHS.get(stroke_width, STROKE_WIDTHS["Medium"])
+    return int(stroke_width) if stroke_width in STROKE_WIDTHS.values() else 2
+
+
+@lru_cache(maxsize=16)
+def _label_font(size: int):
+    """Use local sans-serif fonts, including an offline Pillow fallback."""
+    windows_fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+    candidates = (
+        windows_fonts / "arial.ttf",
+        windows_fonts / "segoeui.ttf",
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+        Path("/System/Library/Fonts/Helvetica.ttc"),
+    )
+    for path in candidates:
+        try:
+            return ImageFont.truetype(str(path), size=size)
+        except OSError:
+            continue
+    # Pillow carries this clear sans-serif font; no network/font download needed.
+    return ImageFont.load_default(size=size)
+
+
+def layout_labels(size: tuple[int, int], layers: dict[str, list[Box]], text: str,
+                  stroke_width: str | int = "Medium") -> list[dict]:
+    """Place bounded main/medium labels, preserving the supplied box data.
+
+    Bounds are exclusive ink bounds; position and font can be used directly with
+    ImageDraw.text. Main is placed first. Unreadable secondary labels are hidden
+    when no nearby candidate avoids an existing label. Micro labels never exist.
+    """
+    width, height = size
+    text = clean_custom_text(text)
+    if not text or min(size) < 8:
+        return []
+    font_size = max(11, min(20, round(min(size) * 0.018)))
+    margin, gap = 2, max(4, _stroke_pixels(stroke_width) + 2)
+    # Keep whole phrases visible, reducing the local default only for small
+    # canvases. The UI deliberately has no typography controls.
+    while font_size >= 8:
+        font = _label_font(font_size)
+        left, top, right, bottom = font.getbbox(text)
+        tw, th = right - left, bottom - top
+        if tw <= width - 2 * margin and th <= height - 2 * margin:
+            break
+        font_size -= 1
+    else:
+        return []
+
+    def overlap(a, b):
+        return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
+            0, min(a[3], b[3]) - max(a[1], b[1]))
+
+    placed = []
+    for tier in ("main", "medium"):
+        for index, box in enumerate(layers.get(tier, [])):
+            x1, y1, x2, y2 = box
+            positions = (
+                (x1, y1 - gap - th),
+                (x1 + gap, y1 + gap),
+                (x2 - tw, y1 - gap - th),
+                (x1, y2 + gap),
+                (x2 + gap, y1 + gap),
+                (x1 - gap - tw, y1 + gap),
+                (x1 + gap, y2 - gap - th),
+            )
+            ranked = []
+            seen = set()
+            for priority, (x, y) in enumerate(positions):
+                x = max(margin, min(width - margin - tw, round(x)))
+                y = round(y)
+                # At the image's top edge prefer a genuinely inset label rather
+                # than clamping an above-box label onto the thick top stroke.
+                if y < margin or y + th > height - margin:
+                    continue
+                bounds = (x, y, x + tw, y + th)
+                if bounds in seen:
+                    continue
+                seen.add(bounds)
+                # A little breathing room also prevents touching text baselines.
+                inflated = (x - 2, y - 2, x + tw + 2, y + th + 2)
+                collision = sum(overlap(inflated, label["bounds"]) for label in placed)
+                ranked.append((collision, priority, bounds))
+            if not ranked:
+                # Very small canvases may have no room for the normal gap.
+                x = max(margin, min(width - margin - tw, round(x1)))
+                y = max(margin, min(height - margin - th, round(y1)))
+                bounds = (x, y, x + tw, y + th)
+                collision = sum(overlap(bounds, label["bounds"]) for label in placed)
+                ranked.append((collision, 0, bounds))
+            collision, _, bounds = min(ranked)
+            if tier == "medium" and collision > 0.15 * max(tw * th, 1):
+                continue
+            placed.append({"tier": tier, "index": index, "text": text,
+                           "bounds": bounds,
+                           "position": (bounds[0] - left, bounds[1] - top),
+                           "font": font})
+    return placed
+
+
+def render_overlay(image: Image.Image, layers: dict[str, list[Box]],
+                   stroke_width: str | int = "Medium", label_mode: str = "Emotion Pool",
+                   word: str | None = None, custom_text: str = "") -> Image.Image:
+    """Render only: copy the base, then draw inward blue lines and Pillow text.
+
+    No analysis or random-state transition is allowed here. This lets the UI
+    redraw stroke/labels/Shuffle from cached boxes without rerunning Detection.
+    """
+    result = image.convert("RGB").copy()
+    draw = ImageDraw.Draw(result)
+    stroke = _stroke_pixels(stroke_width)
+    for tier in ("main", "medium", "micro"):
+        for x1, y1, x2, y2 in layers.get(tier, []):
+            x1, y1 = max(0, int(x1)), max(0, int(y1))
+            x2, y2 = min(result.width, int(x2)), min(result.height, int(y2))
+            if x2 <= x1 or y2 <= y1:
+                continue
+            line = min(stroke, x2 - x1, y2 - y1)
+            # Explicit inward strips avoid thick-stroke expansion outside either
+            # its box or the image, including a one-pixel canvas/rectangle.
+            for bounds in ((x1, y1, x2 - 1, y1 + line - 1),
+                           (x1, y2 - line, x2 - 1, y2 - 1),
+                           (x1, y1, x1 + line - 1, y2 - 1),
+                           (x2 - line, y1, x2 - 1, y2 - 1)):
+                draw.rectangle(bounds, fill=BOX_COLOR)
+    if label_mode == "Emotion Pool":
+        text = word if word in EMOTION_POOL else str(create_word_state()["word"])
+    elif label_mode == "Custom Text":
+        text = clean_custom_text(custom_text)
+    else:
+        text = ""
+    for label in layout_labels(result.size, layers, text, stroke_width):
+        draw.text(label["position"], label["text"], font=label["font"], fill=BOX_COLOR)
+    return result
 
 
 def resize_image(image: Image.Image, max_size: int = MAX_IMAGE_SIZE) -> Image.Image:
@@ -560,8 +744,10 @@ def detect_layers(image: Image.Image, structure: float = 45, seed: int = 0,
 
 
 def process_image(image: Image.Image, structure: float = 45, seed: int = 0,
-                  focus: Focus | None = None) -> Image.Image:
-    """Overlay blue boxes without crop/pad/upscale.
+                  focus: Focus | None = None, *, stroke_width: str | int = "Medium",
+                  label_mode: str = "Emotion Pool", word: str | None = None,
+                  custom_text: str = "") -> Image.Image:
+    """Analyze once and overlay blue boxes/labels without crop/pad/upscale.
 
     Focus is in EXIF-oriented source-image pixels. It is mapped to the output
     only here when the longest edge is reduced to 1600 pixels.
@@ -573,10 +759,4 @@ def process_image(image: Image.Image, structure: float = 45, seed: int = 0,
         focus = (focus[0] * result.width / oriented_size[0],
                  focus[1] * result.height / oriented_size[1])
     layers = detect_layers(result, structure, seed, focus)
-    draw = ImageDraw.Draw(result)
-    line_width = 2 if min(result.size) >= 120 else 1
-    for name, boxes in layers.items():
-        for x1, y1, x2, y2 in boxes:
-            draw.rectangle((x1, y1, x2 - 1, y2 - 1), outline=BOX_COLOR,
-                           width=line_width if name == "main" else 1)
-    return result
+    return render_overlay(result, layers, stroke_width, label_mode, word, custom_text)
