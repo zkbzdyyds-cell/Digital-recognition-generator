@@ -1,0 +1,35 @@
+{
+  "product": "IMAGE OBSERVER",
+  "build": "02.3",
+  "distribution": "Windows local runtime",
+  "delivery_revision": "windows-delivery-1",
+  "entrypoint": "启动工具.bat",
+  "python": "3.12 64-bit",
+  "page_title": "IMAGE OBSERVER · BUILD 02.3",
+  "image_core": "processor.py",
+  "web_entry": "app.py",
+  "historical_html_included": false,
+  "virtual_environment_included": false,
+  "features": [
+    "Structure",
+    "Click to Focus",
+    "Reset Focus",
+    "Stroke Width",
+    "Emotion Pool",
+    "Shuffle Word",
+    "Custom Text",
+    "PNG export"
+  ],
+  "emotion_pool_count": 30,
+  "sha256": {
+    "启动工具.bat": "24a42b69b7586e6498fbdedf2b01e656c67282eb2d63ec2d0c6ccfc2b22c6d7e",
+    "先读我.txt": "99d9ce2e8605afcb7965d28375603539d8543ff91f674572dee711d8d24fad8f",
+    "launcher.py": "283cedc4e6f8eeac569c5837c9669fad8e4e87da1d8394bfd5c49482ea12bc52",
+    "app.py": "806a7c3bd555065fe0c9ce73a5da3820a9f503a0eefe72caf946a33c2fa7879e",
+    "processor.py": "adfa49c33275305b15c59d7be7e21671d8d24b11a85bad514708542f286e9823",
+    "requirements.txt": "1132184711671407c97e5f03fa81241bf069b45f455a7ba18949ee95143a740a",
+    "test_images/detection_01.jpg": "d635bbbfeaf0f3d83b68b3d8665ad0ca22319c26b03552a062f9f9c98af58d8d",
+    "test_images/detection_02.jpg": "0a3d1e391e79ca8f1597676c5bde826496cc2489d84888764c8730f760fa30fc",
+    "outputs/.gitkeep": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  }
+}

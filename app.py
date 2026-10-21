@@ -113,7 +113,8 @@ def change_word(image, layers, stroke_width, label_mode, custom_text, word_state
 
 
 def create_app() -> gr.Blocks:
-    with gr.Blocks(title="image-observer-v1 · Detection Build 02.3", analytics_enabled=False) as demo:
+    with gr.Blocks(title="IMAGE OBSERVER · BUILD 02.3", analytics_enabled=False) as demo:
+        gr.Markdown("# IMAGE OBSERVER · BUILD 02.3", elem_id="build-header")
         # Each browser session owns its image, focus, boxes and word stream.
         image_state, focus_state = gr.State(None), gr.State(None)
         layers_state, word_state = gr.State(None), gr.State(None)
@@ -172,6 +173,15 @@ def create_app() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    create_app().launch(server_name="127.0.0.1", server_port=7860, share=False,
-                        inbrowser=False, show_error=True, enable_monitoring=False,
+    # The Windows launcher selects a free local port before starting this file,
+    # so an older instance on 7860 cannot be mistaken for the current build.
+    try:
+        port = int(os.environ.get("IMAGE_OBSERVER_PORT", "7860"))
+        if not 1 <= port <= 65535:
+            raise ValueError
+    except ValueError:
+        raise SystemExit("启动失败：IMAGE_OBSERVER_PORT 必须是 1–65535 的整数。")
+    create_app().launch(server_name="127.0.0.1", server_port=port, share=False,
+                        inbrowser=os.environ.get("IMAGE_OBSERVER_OPEN_BROWSER") == "1",
+                        show_error=True, enable_monitoring=False,
                         footer_links=[])

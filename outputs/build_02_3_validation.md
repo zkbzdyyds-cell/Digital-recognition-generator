@@ -1,6 +1,6 @@
 # Image Observer — Build 02.3 验收记录
 
-状态：功能完成，等待用户验收。架构锁定为一个 Python 处理核心 + Gradio 网页入口；独立 HTML 保留在 Build 02.2，不删除、不更新。未发布云环境或网站，未推送远程仓库。
+状态：功能完成，等待用户验收。架构锁定为一个 Python 处理核心 + Gradio 网页入口；独立 HTML 保留在 Build 02.2，不删除、不更新。GitHub 用于代码和运行包交付，未发布云环境或网站。最新 Windows 双击启动交付见 [启动与打包验证](build_02_3_windows_delivery_validation.md)。
 
 ## 本轮范围与文件
 
@@ -61,6 +61,6 @@ A 无文字；B 每张图只选一个情绪词；C 全部可见标签统一为 M
 
 ## 在现有本地页面验收
 
-停止旧实例后，使用原虚拟环境运行 `app.py`，刷新页面并确认标题为 Build 02.3；无需重新安装依赖。依次上传人像与牛图，设置 Structure=50，点击 Focus，再完成 A / B / C / D 操作。检查框不动、可见标签同词、三次换词均改变，最后下载 PNG。验收后再决定下一 Build，本轮不进入 02.4。
+下载最新 Windows 运行包，全部解压后双击 `启动工具.bat`，确认页面顶部为 IMAGE OBSERVER · BUILD 02.3。首次依赖自动安装；已有正确环境则跳过。依次上传人像与牛图，设置 Structure=50，点击 Focus，再完成 A / B / C / D 操作。检查框不动、可见标签同词、三次换词均改变，最后下载 PNG。验收后再决定下一 Build，本轮不进入 02.4。
 
-[查看 A/B/C 对比预览](build_02_3_comparison.png) · [下载 12 张结果 PNG ZIP](image-observer-build-02-3-test-results.zip) · [Build 02.3 源码包](image-observer-build-02-3-source.zip) · [机器可读记录](build_02_3_validation.json)
+[查看 A/B/C 对比预览](build_02_3_comparison.png) · [下载 12 张结果 PNG ZIP](image-observer-build-02-3-test-results.zip) · [Build 02.3 Windows 正式运行包](Image-Observer-Build-02.3-Windows.zip) · [机器可读记录](build_02_3_validation.json)

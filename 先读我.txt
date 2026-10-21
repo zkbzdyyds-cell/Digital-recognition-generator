@@ -1,0 +1,59 @@
+﻿IMAGE OBSERVER · BUILD 02.3
+Windows 本地正式运行包
+
+【从这里开始】
+1. 右键下载的 ZIP，选择“全部解压”。请使用一个新的普通文件夹，例如桌面。
+2. 进入解压后的 Image-Observer-Build-02.3-Windows 文件夹。
+3. 双击“启动工具.bat”。不需要手动输入命令，也不需要自己创建虚拟环境。
+4. 浏览器会在环境准备好后自动打开。页面顶部必须显示：
+   IMAGE OBSERVER · BUILD 02.3
+5. 使用工具时保持黑色启动窗口打开。关闭工具可在该窗口按 Ctrl+C，或关闭窗口。
+
+【只有第一次需要安装 Python】
+本包需要 Python 3.12 64-bit。若启动窗口提示找不到它：
+1. 从 Python 官网安装 Windows 64-bit 的 Python 3.12。
+   官网页面：https://www.python.org/downloads/release/python-31210/
+   直接下载官方安装程序：https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe
+2. 安装时勾选“Add python.exe to PATH”，保留 pip、venv 和 Python Launcher 选项。
+3. 安装完成后关闭旧启动窗口，再双击“启动工具.bat”。
+不需要卸载电脑上其他版本的 Python；本包会选择 Python 3.12 64-bit。
+
+【首次启动的依赖安装】
+启动工具会自动在本文件夹创建 .venv，并安装 requirements.txt 中的固定版本。
+首次安装需要联网，通常需要几分钟；控制台会显示进度，请不要关闭窗口。
+以后启动会先检查依赖，正确安装后自动跳过，不会每次重新下载。
+图片处理在本地 CPU 上完成，不使用在线 API、GPU 或额外下载的模型。
+
+【页面应当有哪些功能】
+- Structure：0–100。
+- 在原图上点击 Focus，以及 Reset Focus / 恢复自动。
+- Stroke Width：Thin、Medium、Thick。
+- Labels：Off、Emotion Pool、Custom Text。
+- Emotion Pool 模式显示“换一个 / Shuffle Word”按钮。
+- Custom Text 模式显示英文输入框，自动大写，最长 32 字符。
+- 同一画面的主框和中型框使用同一词，微型框没有文字。
+- 输出图工具栏可下载 PNG。
+
+【两分钟验收】
+上传 test_images/detection_01.jpg（人像）或 detection_02.jpg（牛图）。
+把 Structure 设为 50，在原图点击一个 Focus。
+依次试 Thin + Off、Medium + Emotion Pool、Thick + Custom Text。
+在 Custom Text 输入 MELANCHOLY，再切回 Emotion Pool，连续点击三次 Shuffle Word。
+框的位置、大小和数量应保持不变；词语每次改变，所有可见标签同步变化。
+
+【遇到问题】
+- 不要在压缩软件内部直接双击，不要只复制 BAT；请完整解压后运行。
+- 请勿打开旧文件夹中的 HTML。本运行包不包含历史 HTML，也不需要 HTML 文件。
+- 若已有旧工具占用 7860，启动工具会自动选择空闲端口并打开新页面。
+  请使用自动打开的页面，不要继续使用收藏夹中的旧页面。
+- 如果浏览器没有自动弹出，复制启动窗口显示的 http://127.0.0.1:端口 到浏览器。
+- 安装失败：确认网络可连接 Python 包下载源，再次双击即可重试；详情看 install.log。
+- 提示文件夹不可写：将整个项目解压到桌面等可写位置，勿放在 Program Files。
+- 提示旧环境被占用：关闭之前的工具窗口再启动。损坏的 .venv 会自动备份，不删除。
+- 如果出现 DLL load failed，安装微软官方 VC++ 2015–2022 x64 运行库后重试：
+  https://aka.ms/vs/17/release/vc_redist.x64.exe
+- 启动失败时窗口会保留；请把错误截图和同目录 launcher.log / install.log 发回。
+
+这是 Build 02.3 的 Python + Gradio 正式入口。
+独立 HTML 仅在源仓库中作为历史原型保留，不在此 Windows 包中分发。
+首次运行会生成 .venv 和日志文件；这些文件不需要你手动研究或配置。

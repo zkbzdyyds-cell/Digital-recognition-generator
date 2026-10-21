@@ -4,6 +4,8 @@
 
 路线已锁定为**一个 Python 图像处理核心 + 一个 Gradio 正式网页入口**。`app.py` 是持续试用和后续部署的同一入口；独立 HTML 仅保留为历史原型，不再同步新 Build。
 
+**Windows 正式运行包：**[下载 Image-Observer-Build-02.3-Windows.zip](https://github.com/zkbzdyyds-cell/Digital-recognition-generator/raw/refs/heads/build-02-3/outputs/Image-Observer-Build-02.3-Windows.zip)。全部解压到新文件夹，双击 **`启动工具.bat`**。具体首次安装说明见包内 **`先读我.txt`**；不要用旧 HTML 验收 Build 02.3。
+
 ## 线宽与情绪标签
 
 - **Stroke Width**：Thin = 1px、Medium = 2px（默认）、Thick = 4px。主框、中型框、微型框全部响应；线条向框内绘制，不扩张框数据或画布。
@@ -16,7 +18,7 @@
 
 检测结果在 `gr.State` 中缓存。线宽、模式、Custom Text 和 Shuffle 只调用 `render_overlay()`，不运行 Detection。词语选择使用独立 LCG 状态：上传时按缩小后图像的像素摘要初始化，同一图片和操作顺序可重复；它不修改 Detection 的固定 Seed=0。由于本地字体可能不同，不保证不同操作系统的文字像素逐点相同。
 
-修改前已保留本地恢复分支 `backup/build-02-2-24521ba`，指向 Build 02.2 提交 `24521bacb8cfcfb3bddf1358da224002d12be055`；另有 [Build 02.2 源码备份](outputs/image-observer-build-02-2-source-backup.zip)。本轮未发布云环境，未推送远程仓库。
+修改前已保留本地恢复分支 `backup/build-02-2-24521ba`，指向 Build 02.2 提交 `24521bacb8cfcfb3bddf1358da224002d12be055`；另有 [Build 02.2 源码备份](outputs/image-observer-build-02-2-source-backup.zip)。GitHub 用于交付代码和运行包；工具只在本机启动，没有部署公共网站或发布云环境。
 
 ## 使用 Focus
 
@@ -41,26 +43,22 @@
 
 ## Windows 本地 Gradio
 
-使用 **64 位 Python 3.12**，在包含 `app.py` 的项目目录中打开 PowerShell：
+1. 下载上面的 **Build 02.3 Windows 正式运行包**，右键 ZIP → **全部解压**，解压到新的可写文件夹。不要直接在 ZIP 内运行，也不要覆盖正在运行的旧目录。
+2. 双击 **`启动工具.bat`**。如果提示缺少 Python，按包内 `先读我.txt` 安装 **Python 3.12 64 位**，安装时勾选 **Add python.exe to PATH**，然后再次双击。
+3. 首次运行会自动创建专用 `.venv` 并联网安装依赖。等待完成，浏览器会自动打开，顶部应显示 **IMAGE OBSERVER · BUILD 02.3**。
+4. 保持启动窗口打开。输出图工具栏下载 PNG；结束时在窗口按 `Ctrl+C`。再次双击时会检查并复用已安装的环境。
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe app.py
-```
+启动器只监听 `127.0.0.1`；如果旧工具占用 7860，会在 7861–7879 中选择可用端口并打开相应的新页面。浏览器没有自动打开时，复制启动窗口中的本地地址。安装失败会保留明确提示、`launcher.log` 和 `install.log`，不会直接闪退。发现错误版本的虚拟环境时，会先保留为 `.venv-backup-*` 再创建新环境。
 
-在同一台电脑访问 `http://127.0.0.1:7860`，保持终端打开。更新代码后停止旧实例，再启动。输出图工具栏的下载按钮保存 PNG；按 `Ctrl+C` 停止服务。直接调用虚拟环境 Python，无需激活脚本或修改 PowerShell 执行策略。
+ZIP 包含启动脚本、说明、最新 Python 核心、固定依赖和两张测试原图，不包含历史 HTML、旧源码包或预装虚拟环境。`BUILD_INFO.json` 标记版本、入口、功能与每个运行文件的 SHA-256。历史文件仍保留在仓库。旧 `image-observer-build-02-3-source.zip` 下载地址的内容也更新为同一 Windows 运行包，避免再次打开旧入口。
 
 本轮复用现有依赖，无需新增模型、GPU 或在线服务。`opencv-python-headless` 通过 Gradio 展示结果，不需要另装桌面 OpenCV。首次安装依赖需联网，图像处理在本地执行；遥测、公开分享和监控关闭。所有事件共用 CPU 处理队列，原图、Focus、框数据和词语状态分别由 Gradio State 保存。
 
-本轮在 Linux 的 Python 3.12 / Gradio 6.30 与 Chromium 中验证了真实页面交互，未在 Windows 实机执行；Windows 命令及依赖路径保持原有跨平台方式，没有新增平台脚本。
+交付验证覆盖空环境首次安装、重复启动不重装、端口占用时切换、自动打开正确版本页面，以及从最终 ZIP 解压后的人像 / 牛图真实浏览器处理和 PNG 下载。测试环境是 Linux Python 3.12 / Chromium；Windows BAT 已检查编码、CRLF、路径引号和 Python 探测逻辑，但尚未在 Windows 实机双击执行，需在用户电脑验收。
 
 ## 历史 HTML（停止同步）
 
 独立 HTML 保留为 **Build 02.2 历史原型**，不包含 02.3 的线宽和文字，不再作为后续 Build 的开发或验收入口。它在浏览器使用 Canvas，无法直接执行 Pillow；文件保留原样，不删除、不继续同步算法。
-
-下载 `build-02-2` 分支的 **`image-observer-v1.html`**（GitHub 文件页 → Download raw file），用 Chrome / Edge 直接打开。上传、点击原图、Structure 与恢复自动均离线工作；输出 canvas 可右键另存为 PNG。CSS 预览缩放不会改变画布实际像素。
 
 HTML 与 Python 使用同样的交互规则、固定 Seed 和数量限制，但沿用各自的分析路径：Python 使用 512px 分析图、Pillow / OpenCV；HTML 使用 480px 分析图、Canvas / JavaScript。因此两个入口的框坐标可能不同，同一入口内结果可重复。
 
@@ -77,7 +75,7 @@ HTML 与 Python 使用同样的交互规则、固定 Seed 和数量限制，但�
 
 [查看 Build 02.3 验收记录与输出索引](outputs/build_02_3_validation.md) · [此前 Build 02.2 记录](outputs/build_02_2_validation.md)。
 
-在已有本地页面测试：停止旧实例，用原虚拟环境重新运行 `app.py`，浏览器刷新至标题 Build 02.3。上传人像或牛图，把 Structure 设为 50，点击一个 Focus；依次切换三档线宽和三种标签模式，在 Custom Text 输入 `melancholy`，再返回 Emotion Pool 连续点击三次 Shuffle。观察框数据和 Focus 不动、同一画面的标签统一变化，最后用输出工具栏下载 PNG。无需重新安装依赖。
+在本地页面测试：从新包双击启动，确认标题 Build 02.3。上传人像或牛图，把 Structure 设为 50，点击一个 Focus；依次切换三档线宽和三种标签模式，在 Custom Text 输入 `melancholy`，再返回 Emotion Pool 连续点击三次 Shuffle。观察框数据和 Focus 不动、同一画面的标签统一变化，最后用输出工具栏下载 PNG。
 
 运行尺寸和焦点自动验证：
 
@@ -108,7 +106,10 @@ with Image.open("test_images/detection_01.jpg") as source:
 ```text
 app.py                   # Gradio 操作、会话图像/Focus/框/词语状态
 processor.py             # Detection、筛选、底图尺寸处理、Overlay 与词库
-image-observer-v1.html   # 保留的独立 Build 02.2 浏览器入口
+launcher.py              # 本地 Python / 依赖检查、专用环境与浏览器启动
+启动工具.bat             # Windows 双击入口
+先读我.txt               # 首次安装与故障提示
+image-observer-v1.html   # 仓库中保留的 Build 02.2 历史原型，不放入运行包
 requirements.txt         # 现有依赖版本，无额外模型
 test_build_02_2.py        # 尺寸与焦点自动回归验证
 test_build_02_3.py        # 线宽、词库、Overlay 与状态验证

@@ -1,0 +1,357 @@
+{
+  "build": "02.3",
+  "scope": "Windows delivery and startup only",
+  "archive": "Image-Observer-Build-02.3-Windows.zip",
+  "bytes": 1028962,
+  "sha256": "66244d68dd7bab568e8fa0109c21dafe43d674d8e0a005aca60acce6d7cbe290",
+  "zip_crc": "pass",
+  "runtime_file_hashes": "pass",
+  "file_count": 10,
+  "historical_html_included": false,
+  "processor_unchanged_since": "fce365e0b07ac37330328401cf8dfb1db9f9a73f",
+  "historical_html_unchanged_since": "24521bacb8cfcfb3bddf1358da224002d12be055",
+  "build_02_2_recovery_commit": "24521bacb8cfcfb3bddf1358da224002d12be055",
+  "old_source_zip_alias_has_identical_bytes": true,
+  "bootstrap": {
+    "url": "http://127.0.0.1:7861/",
+    "title": "IMAGE OBSERVER · BUILD 02.3",
+    "server_ready_before_open": true,
+    "first_install_from_empty_venv": true,
+    "repeat_launch_skips_install": true,
+    "old_7860_avoided": true,
+    "unicode_space_path": "/tmp/Image Observer 交付检查/首次安装"
+  },
+  "zip_browser_test": {
+    "sourceRoot": "/tmp/Image Observer 交付检查/最终ZIP/Image-Observer-Build-02.3-Windows",
+    "title": "IMAGE OBSERVER · BUILD 02.3",
+    "records": [
+      {
+        "image": "detection_01",
+        "size": [
+          909,
+          1447
+        ],
+        "word": "REGRET",
+        "shuffledWord": "AFFECTION",
+        "focus": [
+          429,
+          520
+        ],
+        "overlayDetectionCalls": 0
+      },
+      {
+        "image": "detection_02",
+        "size": [
+          1600,
+          1061
+        ],
+        "word": "ENVY",
+        "shuffledWord": "AFFECTION",
+        "focus": [
+          749,
+          508
+        ],
+        "overlayDetectionCalls": 0
+      }
+    ],
+    "errors": [],
+    "external": [],
+    "checks": [
+      "fresh ZIP code",
+      "visible Build02.3 h1",
+      "three stroke options",
+      "three label modes",
+      "Shuffle updates word without Detection",
+      "Custom Text appears and renders MELANCHOLY",
+      "native Focus",
+      "both PNG downloads",
+      "output dimensions"
+    ]
+  },
+  "existing_regression_suite": {
+    "passed": 14,
+    "failed": 0
+  },
+  "windows_cmd_actual_execution": false,
+  "windows_bat_static_review": {
+    "encoding": "UTF-8 no BOM",
+    "line_endings": "CRLF",
+    "quoted_paths": true,
+    "preserved_errors_and_logs": true
+  },
+  "validation_environment": "Linux, Python 3.12, Gradio 6.30.0, Chromium",
+  "publication": "Source and ZIP delivery to existing GitHub branch only; no website or cloud environment deployment",
+  "windows_python_3_12_dependency_resolution": {
+    "status": "pass",
+    "wheel_count": 53,
+    "packages": [
+      {
+        "name": "gradio",
+        "version": "6.30.0",
+        "wheel": "gradio-6.30.0-py3-none-any.whl"
+      },
+      {
+        "name": "opencv-python-headless",
+        "version": "4.13.0.92",
+        "wheel": "opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl"
+      },
+      {
+        "name": "pillow",
+        "version": "12.3.0",
+        "wheel": "pillow-12.3.0-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "numpy",
+        "version": "2.3.5",
+        "wheel": "numpy-2.3.5-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "gradio_client",
+        "version": "2.7.2",
+        "wheel": "gradio_client-2.7.2-py3-none-any.whl"
+      },
+      {
+        "name": "anyio",
+        "version": "4.15.1",
+        "wheel": "anyio-4.15.1-py3-none-any.whl"
+      },
+      {
+        "name": "brotli",
+        "version": "1.2.0",
+        "wheel": "brotli-1.2.0-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "fastapi",
+        "version": "0.156.4",
+        "wheel": "fastapi-0.156.4-py3-none-any.whl"
+      },
+      {
+        "name": "groovy",
+        "version": "0.1.2",
+        "wheel": "groovy-0.1.2-py3-none-any.whl"
+      },
+      {
+        "name": "hf-gradio",
+        "version": "0.4.1",
+        "wheel": "hf_gradio-0.4.1-py3-none-any.whl"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "wheel": "httpx-0.28.1-py3-none-any.whl"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "wheel": "httpcore-1.0.9-py3-none-any.whl"
+      },
+      {
+        "name": "huggingface_hub",
+        "version": "2.2.0",
+        "wheel": "huggingface_hub-2.2.0-py3-none-any.whl"
+      },
+      {
+        "name": "Jinja2",
+        "version": "3.1.6",
+        "wheel": "jinja2-3.1.6-py3-none-any.whl"
+      },
+      {
+        "name": "MarkupSafe",
+        "version": "3.0.4",
+        "wheel": "markupsafe-3.0.4-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "orjson",
+        "version": "3.13.0",
+        "wheel": "orjson-3.13.0-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "packaging",
+        "version": "26.3",
+        "wheel": "packaging-26.3-py3-none-any.whl"
+      },
+      {
+        "name": "pandas",
+        "version": "3.0.6",
+        "wheel": "pandas-3.0.6-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.14.1",
+        "wheel": "pydantic-2.14.1-py3-none-any.whl"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.50.1",
+        "wheel": "pydantic_core-2.50.1-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "pydub",
+        "version": "0.25.1",
+        "wheel": "pydub-0.25.1-py2.py3-none-any.whl"
+      },
+      {
+        "name": "python-multipart",
+        "version": "0.0.32",
+        "wheel": "python_multipart-0.0.32-py3-none-any.whl"
+      },
+      {
+        "name": "pytz",
+        "version": "2026.5",
+        "wheel": "pytz-2026.5-py2.py3-none-any.whl"
+      },
+      {
+        "name": "PyYAML",
+        "version": "6.0.3",
+        "wheel": "pyyaml-6.0.3-cp312-cp312-win_amd64.whl"
+      },
+      {
+        "name": "safehttpx",
+        "version": "0.1.7",
+        "wheel": "safehttpx-0.1.7-py3-none-any.whl"
+      },
+      {
+        "name": "semantic-version",
+        "version": "2.10.0",
+        "wheel": "semantic_version-2.10.0-py2.py3-none-any.whl"
+      },
+      {
+        "name": "starlette",
+        "version": "1.9.0",
+        "wheel": "starlette-1.9.0-py3-none-any.whl"
+      },
+      {
+        "name": "tomlkit",
+        "version": "0.14.0",
+        "wheel": "tomlkit-0.14.0-py3-none-any.whl"
+      },
+      {
+        "name": "typer",
+        "version": "0.27.3",
+        "wheel": "typer-0.27.3-py3-none-any.whl"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0",
+        "wheel": "typing_extensions-4.16.0-py3-none-any.whl"
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.54.0",
+        "wheel": "uvicorn-0.54.0-py3-none-any.whl"
+      },
+      {
+        "name": "annotated-doc",
+        "version": "0.0.5",
+        "wheel": "annotated_doc-0.0.5-py3-none-any.whl"
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0",
+        "wheel": "annotated_types-0.8.0-py3-none-any.whl"
+      },
+      {
+        "name": "click",
+        "version": "8.5.0",
+        "wheel": "click-8.5.0-py3-none-any.whl"
+      },
+      {
+        "name": "filelock",
+        "version": "4.2.4",
+        "wheel": "filelock-4.2.4-py3-none-any.whl"
+      },
+      {
+        "name": "fsspec",
+        "version": "2026.9.0",
+        "wheel": "fsspec-2026.9.0-py3-none-any.whl"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "wheel": "h11-0.16.0-py3-none-any.whl"
+      },
+      {
+        "name": "hf-xet",
+        "version": "1.7.0",
+        "wheel": "hf_xet-1.7.0-cp38-abi3-win_amd64.whl"
+      },
+      {
+        "name": "httpx2",
+        "version": "2.15.1",
+        "wheel": "httpx2-2.15.1-py3-none-any.whl"
+      },
+      {
+        "name": "httpcore2",
+        "version": "2.15.1",
+        "wheel": "httpcore2-2.15.1-py3-none-any.whl"
+      },
+      {
+        "name": "idna",
+        "version": "3.20",
+        "wheel": "idna-3.20-py3-none-any.whl"
+      },
+      {
+        "name": "opentelemetry-api",
+        "version": "1.45.1",
+        "wheel": "opentelemetry_api-1.45.1-py3-none-any.whl"
+      },
+      {
+        "name": "python-dateutil",
+        "version": "2.9.0.post0",
+        "wheel": "python_dateutil-2.9.0.post0-py2.py3-none-any.whl"
+      },
+      {
+        "name": "rich",
+        "version": "15.0.0",
+        "wheel": "rich-15.0.0-py3-none-any.whl"
+      },
+      {
+        "name": "shellingham",
+        "version": "1.5.4",
+        "wheel": "shellingham-1.5.4-py2.py3-none-any.whl"
+      },
+      {
+        "name": "tqdm",
+        "version": "4.70.1",
+        "wheel": "tqdm-4.70.1-py3-none-any.whl"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4",
+        "wheel": "typing_inspection-0.4.4-py3-none-any.whl"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.10.19",
+        "wheel": "certifi-2026.10.19-py3-none-any.whl"
+      },
+      {
+        "name": "markdown-it-py",
+        "version": "4.2.0",
+        "wheel": "markdown_it_py-4.2.0-py3-none-any.whl"
+      },
+      {
+        "name": "Pygments",
+        "version": "2.21.0",
+        "wheel": "pygments-2.21.0-py3-none-any.whl"
+      },
+      {
+        "name": "six",
+        "version": "1.17.0",
+        "wheel": "six-1.17.0-py2.py3-none-any.whl"
+      },
+      {
+        "name": "truststore",
+        "version": "0.10.5",
+        "wheel": "truststore-0.10.5-py3-none-any.whl"
+      },
+      {
+        "name": "mdurl",
+        "version": "0.1.2",
+        "wheel": "mdurl-0.1.2-py3-none-any.whl"
+      }
+    ],
+    "command": "pip install --dry-run --ignore-installed --only-binary=:all: --platform win_amd64 --python-version 3.12 --implementation cp --abi cp312 -r requirements.txt",
+    "actual_windows_install": false
+  }
+}
