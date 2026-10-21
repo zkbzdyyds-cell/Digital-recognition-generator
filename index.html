@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>IMAGE OBSERVER · BUILD 02.3</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1320px; margin: 0 auto; padding: 44px 32px 32px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+    h1 { font-size: 25px; font-weight: 650; letter-spacing: -0.9px; margin: 0; }
+    .version { color: #69778a; font-weight: 400; font-size: 16px; margin-left: 8px; letter-spacing: 0; }
+    .build { color: #0050ff; background: #e9efff; border: 1px solid #d7e3ff; padding: 7px 11px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+    .intro { color: #687586; font-size: 13px; line-height: 1.7; margin: 0 0 28px; }
+    .upload { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; padding: 26px 20px; background: #fff; border: 1px dashed #b9c6d9; border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .upload:hover, .upload.dragging { border-color: #0050ff; background: #f8faff; }
+    .upload:focus-within { outline: 2px solid #0050ff; outline-offset: 3px; }
+    .upload svg { color: #0050ff; }
+    .upload strong { font-size: 14px; font-weight: 550; }
+    .upload span { font-size: 12px; color: #7b8796; }
+    .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    #status { min-height: 32px; margin: 10px 0 5px; font-size: 12px; color: #687586; line-height: 1.7; overflow-wrap: anywhere; }
+    #status[data-state="error"] { color: #b42c34; }
+    .structure { display: grid; grid-template-columns: auto 1fr 28px; gap: 14px; align-items: center; margin: 18px 0 0; font-size: 13px; }
+    .structure input { min-width: 0; width: 100%; accent-color: #0050ff; }
+    .structure output { text-align: right; color: #687586; font-variant-numeric: tabular-nums; }
+    .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .panel { min-width: 0; border: 1px solid #dfe4eb; border-radius: 10px; background: #fff; overflow: hidden; }
+    h2 { margin: 0; padding: 16px 19px; font-size: 13px; font-weight: 550; border-bottom: 1px solid #edf0f4; }
+    .preview { min-height: 350px; padding: 18px; display: flex; align-items: center; justify-content: center; background: #fafbfc; }
+    .placeholder { color: #9ba5b3; font-size: 13px; text-align: center; }
+    canvas { display: block; max-width: 100%; max-height: 65vh; width: auto; height: auto; object-fit: contain; }
+    #original { cursor: crosshair; }
+    #resetFocus { margin-top: 14px; padding: 7px 11px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
+    #resetFocus:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .actions #resetFocus { margin-top: 0; }
+    button, select, input { font: inherit; }
+    button:disabled { opacity: .5; cursor: default; }
+    #downloadPNG, #shuffleWord { padding: 8px 12px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
+    #downloadPNG { color: #0050ff; border-color: #8aafff; }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 18px 0 0; font-size: 13px; }
+    .control { display: flex; flex-direction: column; gap: 7px; }
+    .control select, #customText { padding: 8px 10px; color: inherit; background: #fff; border: 1px solid #b9c6d9; border-radius: 6px; }
+    .control select { min-width: 155px; }
+    #customTextField { margin-top: 14px; font-size: 13px; max-width: 460px; }
+    #customText { width: 100%; }
+    button:focus-visible, select:focus-visible, #customText:focus-visible { outline: 2px solid #0050ff; outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 700px) {
+      main { padding: 25px 16px; }
+      header { align-items: flex-start; flex-direction: column; gap: 12px; }
+      h1 { font-size: 23px; }
+      .panels { grid-template-columns: 1fr; gap: 16px; }
+      .preview { min-height: 240px; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>IMAGE OBSERVER · BUILD 02.3</h1>
+      <span class="build">Detection</span>
+    </header>
+    <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
+    <label class="upload" id="dropZone" for="upload">
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></svg>
+      <strong>点击上传图片，或将图片拖到这里</strong>
+      <span>JPG / PNG · 最长边不超过 1600px · 无需联网</span>
+      <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
+    </label>
+    <label class="structure" for="structure"><span>Structure</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
+    <div class="actions">
+      <button id="resetFocus" type="button" disabled>Reset Focus / 恢复自动</button>
+      <button id="downloadPNG" type="button" disabled>下载 PNG</button>
+    </div>
+    <div class="controls">
+      <label class="control" for="strokeWidth">Stroke Width
+        <select id="strokeWidth">
+          <option value="Thin">Thin · 1px</option>
+          <option value="Medium" selected>Medium · 2px</option>
+          <option value="Thick">Thick · 4px</option>
+        </select>
+      </label>
+      <label class="control" for="labelMode">Labels
+        <select id="labelMode">
+          <option value="Off">Off</option>
+          <option value="Emotion Pool" selected>Emotion Pool</option>
+          <option value="Custom Text">Custom Text</option>
+        </select>
+      </label>
+      <button id="shuffleWord" type="button" disabled>换一个 / Shuffle Word</button>
+    </div>
+    <label class="control" id="customTextField" for="customText" hidden>Custom Text · English · 32 characters max
+      <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="MELANCHOLY">
+    </label>
+    <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
+    <div class="panels">
+      <section class="panel" aria-labelledby="originalLabel">
+        <h2 id="originalLabel">原图</h2>
+        <div class="preview">
+          <span class="placeholder" id="originalPlaceholder">上传后显示原图</span>
+          <canvas id="original" hidden role="img" aria-label="原图预览，点击指定 Focus"></canvas>
+        </div>
+      </section>
+      <section class="panel" aria-labelledby="outputLabel">
+        <h2 id="outputLabel">Detection 输出图</h2>
+        <div class="preview">
+          <span class="placeholder" id="outputPlaceholder">上传后生成蓝色检测框</span>
+          <canvas id="output" hidden role="img" aria-label="蓝色检测框输出图"></canvas>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script>
+/* Detection Build 02.2: local, deterministic CPU image analysis; no models or network. */
+(function (root) {
+  'use strict';
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // Fit exclusive-right/bottom coordinates. Area limits are fractions of the image.
+  // Search integer dimensions so even small images respect the limits when feasible.
+  function fit(box, w, h, minArea = 0.08, maxArea = 0.80) {
+    w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h));
+    const bw = Math.max(1, Math.abs(box[2] - box[0]));
+    const bh = Math.max(1, Math.abs(box[3] - box[1]));
+    const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
+    const lo = Math.max(1, Math.ceil(w * h * minArea));
+    const hi = Math.max(1, Math.floor(w * h * maxArea));
+    let best = null, bestScore = Infinity;
+    for (let pass = 0; pass < 2 && !best; pass++) {
+      for (let ww = 1; ww <= w; ww++) {
+        let lower = Math.max(1, Math.ceil(ww / 3.5));
+        let upper = Math.min(h, Math.floor(ww * 3.5));
+        if (pass === 0) {
+          lower = Math.max(lower, Math.ceil(lo / ww));
+          upper = Math.min(upper, Math.floor(hi / ww));
+        }
+        if (lower > upper) continue;
+        const hh = clamp(Math.round(bh), lower, upper);
+        const score = Math.log(ww / bw) ** 2 + Math.log(hh / bh) ** 2;
+        if (score < bestScore) { bestScore = score; best = [ww, hh]; }
+      }
+    }
+    if (!best) best = [1, 1];
+    const x = clamp(Math.round(cx - best[0] / 2), 0, w - best[0]);
+    const y = clamp(Math.round(cy - best[1] / 2), 0, h - best[1]);
+    return [x, y, x + best[0], y + best[1]];
+  }
+
+  function integral(values, w, h) {
+    const stride = w + 1, out = new Float64Array(stride * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) {
+        row += values[y * w + x];
+        out[(y + 1) * stride + x + 1] = row + out[y * stride + x + 1];
+      }
+    }
+    return out;
+  }
+  function sum(ii, s, b) {
+    return ii[b[3] * s + b[2]] - ii[b[1] * s + b[2]]
+      - ii[b[3] * s + b[0]] + ii[b[1] * s + b[0]];
+  }
+  const area = b => (b[2] - b[0]) * (b[3] - b[1]);
+  function iou(a, b) {
+    const intersect = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]))
+      * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    return intersect / Math.max(1, area(a) + area(b) - intersect);
+  }
+
+  // Separable, replicated-border box blur; coarse maps suppress fine texture.
+  function blur(values, w, h, radius) {
+    const temp = new Float64Array(w * h), out = new Float32Array(w * h), divisor = 2 * radius + 1;
+    for (let y = 0; y < h; y++) {
+      let value = 0;
+      for (let k = -radius; k <= radius; k++) value += values[y * w + clamp(k, 0, w - 1)];
+      for (let x = 0; x < w; x++) {
+        temp[y * w + x] = value / divisor;
+        value += values[y * w + clamp(x + radius + 1, 0, w - 1)] - values[y * w + clamp(x - radius, 0, w - 1)];
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let value = 0;
+      for (let k = -radius; k <= radius; k++) value += temp[clamp(k, 0, h - 1) * w + x];
+      for (let y = 0; y < h; y++) {
+        out[y * w + x] = value / divisor;
+        value += temp[clamp(y + radius + 1, 0, h - 1) * w + x] - temp[clamp(y - radius, 0, h - 1) * w + x];
+      }
+    }
+    return out;
+  }
+  function normalized(values) {
+    const sorted = Float32Array.from(values).sort();
+    const index = (sorted.length - 1) * .98, lower = Math.floor(index);
+    let limit = sorted[lower] + (sorted[Math.min(lower + 1, sorted.length - 1)] - sorted[lower]) * (index - lower);
+    if (limit < 1e-6) limit = sorted[sorted.length - 1];
+    return Float32Array.from(values, value => limit > 1e-6 ? clamp(value / limit, 0, 1) : 0);
+  }
+  function smoothHistogram(histogram) {
+    let current = histogram;
+    for (const step of [64, 8, 1]) {
+      const next = new Float32Array(512);
+      for (let i = 0; i < 512; i++) {
+        const coordinate = Math.floor(i / step) % 8;
+        next[i] = (current[coordinate ? i - step : i] + 2 * current[i]
+          + current[coordinate < 7 ? i + step : i]) / 4;
+      }
+      current = next;
+    }
+    return current;
+  }
+  function detailFallback(main, w, h) {
+    const mw = main[2] - main[0], mh = main[3] - main[1];
+    return [[.08,.10,.52,.54],[.47,.46,.92,.91],[.48,.08,.91,.51],[.09,.48,.52,.91]].map(b =>
+      fit([b[0] * mw, b[1] * mh, b[2] * mw, b[3] * mh], mw, mh,
+        Math.min(.008 * w * h / (mw * mh), .4), .65)
+        .map((value, index) => value + main[index % 2]));
+  }
+  function fallback(w, h, focus=null) {
+    const main = focus
+      ? fit([focus[0]-.19*w,focus[1]-.19*h,focus[0]+.19*w,focus[1]+.19*h],w,h,.08,.8)
+      : fit([.22*w, .22*h, .78*w, .78*h], w, h, .08, .8);
+    return [main, ...detailFallback(main, w, h).slice(0, 2)];
+  }
+  function subjectMap(channels, gray, w, h) {
+    const n = w * h, side = Math.min(w, h);
+    const small = channels.map(c => blur(c, w, h, Math.max(1, Math.round(side * .015))));
+    const broad = channels.map(c => blur(c, w, h, Math.max(2, Math.round(side * .12))));
+    const smallGray = new Float32Array(n), encoded = new Uint16Array(n);
+    const allHist = new Float32Array(512), borderHist = new Float32Array(512);
+    const border = Math.max(1, Math.round(side * .06)), means = [0, 0, 0];
+    let borderCount = 0;
+    for (let i = 0; i < n; i++) {
+      const x = i % w, y = Math.floor(i / w);
+      smallGray[i] = .299 * small[0][i] + .587 * small[1][i] + .114 * small[2][i];
+      encoded[i] = Math.min(7, Math.floor(small[0][i] * 8)) * 64
+        + Math.min(7, Math.floor(small[1][i] * 8)) * 8 + Math.min(7, Math.floor(small[2][i] * 8));
+      allHist[encoded[i]]++;
+      if (x < border || y < border || x >= w-border || y >= h-border) { borderHist[encoded[i]]++; borderCount++; }
+      for (let c = 0; c < 3; c++) means[c] += small[c][i] / n;
+    }
+    for (let i = 0; i < 512; i++) { allHist[i] /= n; borderHist[i] /= Math.max(1, borderCount); }
+    const allDensity = smoothHistogram(allHist), borderDensity = smoothHistogram(borderHist);
+    const coarse = new Float32Array(n), globalContrast = new Float32Array(n), fine = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let localDistance = 0, globalDistance = 0;
+      for (let c = 0; c < 3; c++) { localDistance += (small[c][i] - broad[c][i]) ** 2; globalDistance += (small[c][i] - means[c]) ** 2; }
+      coarse[i] = Math.sqrt(localDistance / 3); globalContrast[i] = Math.sqrt(globalDistance / 3);
+      fine[i] = Math.abs(gray[i] - smallGray[i]);
+    }
+    const coarseNorm = normalized(coarse), globalNorm = normalized(globalContrast);
+    const fineMean = blur(fine, w, h, Math.max(1, Math.round(side * .012))), confidence = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const novelty = clamp((allDensity[encoded[i]] - 1.15 * borderDensity[encoded[i]]) / (allDensity[encoded[i]] + .002), 0, 1);
+      const textureGate = 1 / (1 + 1.8 * fineMean[i] / (.025 + coarse[i]));
+      const darkGate = .08 + .92 * clamp((smallGray[i] - .025) / .14, 0, 1);
+      confidence[i] = (.60 * novelty + .25 * coarseNorm[i] + .15 * globalNorm[i]) * textureGate * darkGate;
+    }
+    return normalized(blur(confidence, w, h, Math.max(1, Math.round(side * .018))));
+  }
+  function informationMap(channels, gray, w, h) {
+    // Fine edges are only a 3% tie-breaker, gated by coherent subject confidence.
+    const n = w * h, smooth = blur(gray, w, h, 1), broad = blur(gray, w, h, 5);
+    const colorBroad = channels.map(c => blur(c, w, h, 9));
+    const edges = new Float32Array(n), contrast = new Float32Array(n), colors = new Float32Array(n);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      edges[i] = Math.hypot(smooth[y*w+Math.min(w-1,x+1)] - smooth[y*w+Math.max(0,x-1)],
+        smooth[Math.min(h-1,y+1)*w+x] - smooth[Math.max(0,y-1)*w+x]);
+      contrast[i] = Math.abs(gray[i] - broad[i]);
+      colors[i] = Math.hypot(channels[0][i]-colorBroad[0][i], channels[1][i]-colorBroad[1][i], channels[2][i]-colorBroad[2][i]);
+    }
+    const e = normalized(edges), c = normalized(contrast), k = normalized(colors);
+    return blur(Float32Array.from(e, (value, i) => .5*value + .3*c[i] + .2*k[i]), w, h, 2);
+  }
+  function components(mask, w, h) {
+    const labels = new Int32Array(w*h), queue = new Int32Array(w*h), regions = [];
+    let label = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start] || labels[start]) continue;
+      let head = 0, tail = 1, x1 = w, y1 = h, x2 = 0, y2 = 0;
+      queue[0] = start; labels[start] = ++label;
+      while (head < tail) {
+        const p = queue[head++], x = p % w, y = Math.floor(p / w);
+        x1 = Math.min(x1,x); y1 = Math.min(y1,y); x2 = Math.max(x2,x+1); y2 = Math.max(y2,y+1);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x+dx, ny = y+dy, q = ny*w+nx;
+          if (nx>=0 && nx<w && ny>=0 && ny<h && mask[q] && !labels[q]) { labels[q] = label; queue[tail++] = q; }
+        }
+      }
+      regions.push({ box: [x1,y1,x2,y2], pixels: tail });
+    }
+    return { labels, regions, count: label };
+  }
+  function compareBoxes(a, b) { for (let i = 0; i < 4; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; }
+  function unique(boxes) { return [...new Map(boxes.map(box => [box.join(','), box])).values()]; }
+  function analyze(image, capture, focus=null) {
+    const w = image.width, h = image.height, n = w*h, rgba = image.data;
+    if (w<3 || h<3 || !rgba || rgba.length<n*4) return fallback(w,h,focus);
+    const channels = [new Float32Array(n), new Float32Array(n), new Float32Array(n)], gray = new Float32Array(n);
+    const sums = [0,0,0], squares = [0,0,0];
+    for (let i=0; i<n; i++) {
+      const alpha = rgba[i*4+3]/255;
+      for (let c=0; c<3; c++) { const value = (rgba[i*4+c]*alpha+255*(1-alpha))/255;
+        channels[c][i] = value; sums[c] += value; squares[c] += value*value; }
+      gray[i] = .299*channels[0][i]+.587*channels[1][i]+.114*channels[2][i];
+    }
+    if (Math.max(...sums.map((value,c) => Math.sqrt(Math.max(0,squares[c]/n-(value/n)**2)))) < .05/255) return fallback(w,h,focus);
+    const subject = subjectMap(channels,gray,w,h), fine = informationMap(channels,gray,w,h);
+    if (capture) { capture.subject = subject; capture.detail = fine; }
+    // A click supplies a spatial prior, never an object-class assumption. Keep
+    // the un-focused map unchanged so Reset reproduces the automatic result.
+    const info = Float32Array.from(subject,(value,i) => focus
+      ? (.65*value+.35*fine[i])*(.12+.88*Math.exp(-.5*((((i%w)-focus[0])/(.18*w))**2+((Math.floor(i/w)-focus[1])/(.18*h))**2)))
+      : .97*value+.03*fine[i]*value);
+    const total = info.reduce((a,b)=>a+b,0);
+    if (total<1e-4) return fallback(w,h,focus);
+    const candidates = [], stride = w+1, ii = integral(info,w,h);
+    const radius = (Math.max(3,Math.round(Math.min(w,h)*.016))|1)>>1;
+    let support;
+    for (const threshold of [.28,.46,.66]) {
+      const mask = Uint8Array.from(subject,value=>value>=threshold?1:0);
+      // Ignore floating-point residue below half of one occupied kernel pixel.
+      const minimumHit = .5 / ((2*radius+1)**2);
+      const dilated = Uint8Array.from(blur(mask,w,h,radius),value=>value>=minimumHit?1:0);
+      const closed = Uint8Array.from(blur(dilated,w,h,radius),value=>value>=1-1e-6?1:0);
+      const grouped = components(closed,w,h);
+      if (!support) support = grouped;
+      for (const region of grouped.regions.sort((a,b)=>b.pixels-a.pixels).slice(0,32)) {
+        if (region.pixels<Math.max(4,n*.0015)) continue;
+        const [x1,y1,x2,y2] = region.box, pad = Math.max(2,Math.round(Math.min(x2-x1,y2-y1)*.06));
+        candidates.push([x1-pad,y1-pad,x2+pad,y2+pad]);
+      }
+    }
+    const peaks = Float32Array.from(subject);
+    for (let p=0; p<12; p++) {
+      let index = 0;
+      for (let i=1; i<n; i++) if (peaks[i]>peaks[index]) index=i;
+      if (peaks[index]<.10) break;
+      const x = index%w, y = Math.floor(index/w);
+      for (const f of [.28,.42,.56,.68]) candidates.push([x-w*f/2,y-h*f/2,x+w*f/2,y+h*f/2]);
+      const rx = Math.max(1,Math.round(w*.14)), ry = Math.max(1,Math.round(h*.14));
+      for (let yy=Math.max(0,y-ry); yy<Math.min(h,y+ry+1); yy++) peaks.fill(0,yy*w+Math.max(0,x-rx),yy*w+Math.min(w,x+rx+1));
+    }
+    if (focus) {
+      // Local windows ensure useful, bounded candidates even if the automatic
+      // connected components belong to a different subject elsewhere.
+      for (const f of [.28,.38,.48]) for (const ratio of [.8,1,1.25]) {
+        const bw=w*f*ratio,bh=h*f/ratio;
+        candidates.push([focus[0]-bw/2,focus[1]-bh/2,focus[0]+bw/2,focus[1]+bh/2]);
+      }
+    }
+    const populations = new Int32Array(support.count+1), stamps = new Int32Array(support.count+1), cache = new Map();
+    let stamp = 0;
+    function score(box) {
+      const key = box.join(','); if (cache.has(key)) return cache.get(key);
+      const [x1,y1,x2,y2] = box, a = area(box), fraction = a/n, mass = sum(ii,stride,box);
+      let occupied = 0, largest = 0; stamp++;
+      for (let y=y1; y<y2; y++) for (let x=x1; x<x2; x++) {
+        const label = support.labels[y*w+x]; if (!label) continue;
+        if (stamps[label]!==stamp) { stamps[label]=stamp; populations[label]=0; }
+        largest = Math.max(largest,++populations[label]); occupied++;
+      }
+      const px = Math.max(1,Math.round((x2-x1)*.18)), py = Math.max(1,Math.round((y2-y1)*.18));
+      const outer = [Math.max(0,x1-px),Math.max(0,y1-py),Math.min(w,x2+px),Math.min(h,y2+py)];
+      const ringMean = (sum(ii,stride,outer)-mass)/Math.max(area(outer)-a,1);
+      const contrast = Math.max(0,mass/a-ringMean)/Math.max(total/n,1e-6);
+      const touch = Number(x1===0)+Number(y1===0)+Number(x2===w)+Number(y2===h);
+      const penalty = 1+6*Math.max(0,fraction-.48)**1.3+.10*touch+.15*Math.log((x2-x1)/(y2-y1))**2;
+      const affinity = focus ? .08+.92*Math.exp(-.5*((((x1+x2)/2-focus[0])/(.20*w))**2+(((y1+y2)/2-focus[1])/(.20*h))**2)) : 1;
+      const value = mass/total/Math.max(fraction,1e-9)**.65*(.5+.5*occupied/a)
+        *(.65+.35*largest/Math.max(occupied,1))*(1+.35*Math.min(contrast,2))/penalty
+        *affinity/(focus ? 1+5*Math.max(0,fraction-.25) : 1);
+      cache.set(key,value); return value;
+    }
+    const rank = boxes => unique(boxes).sort((a,b)=>score(b)-score(a)||compareBoxes(a,b));
+    const mains = rank(candidates.map(box=>fit(box,w,h,.08,.8)).filter(box=>!focus ||
+      (box[0]<=focus[0] && focus[0]<box[2] && box[1]<=focus[1] && focus[1]<box[3])));
+    if (!mains.length) return fallback(w,h,focus);
+    const main = mains[0], [mx1,my1,mx2,my2] = main, mw = mx2-mx1, mh = my2-my1;
+    const expanded = [Math.max(0,mx1-mw*.10),Math.max(0,my1-mh*.10),Math.min(w,mx2+mw*.10),Math.min(h,my2+mh*.10)];
+    const auxiliaries = candidates.map(box=>fit(box,w,h,.008,.14));
+    for (const fraction of [.32,.45,.60]) {
+      const aw = Math.max(1,mw*fraction), ah = Math.max(1,mh*fraction);
+      for (let gy=0; gy<4; gy++) for (let gx=0; gx<4; gx++) {
+        const x = mx1+(mw-aw)*gx/3, y = my1+(mh-ah)*gy/3;
+        auxiliaries.push(fit([x,y,x+aw,y+ah],w,h,.008,.14));
+      }
+    }
+    function nearMain(box) {
+      const [x1,y1,x2,y2] = box, cx = (x1+x2)/2, cy = (y1+y2)/2;
+      const overlap = Math.max(0,Math.min(x2,expanded[2])-Math.max(x1,expanded[0]))
+        *Math.max(0,Math.min(y2,expanded[3])-Math.max(y1,expanded[1]));
+      return cx>=mx1 && cx<=mx2 && cy>=my1 && cy<=my2 && overlap>=.8*area(box) && area(box)<=.65*mw*mh;
+    }
+    const selected = [];
+    for (const box of rank(auxiliaries.filter(nearMain))) {
+      if (iou(main,box)>.65 || selected.some(previous=>iou(box,previous)>=.35)) continue;
+      selected.push(box); if (selected.length===4) break;
+    }
+    const details = detailFallback(main,w,h);
+    for (const box of details) {
+      if (selected.length>=2) break;
+      if (!selected.some(previous=>compareBoxes(box,previous)===0)) selected.push(box);
+    }
+    while (selected.length<2) selected.push(details[0]);
+    return [main,...selected];
+  }
+  function detect(image, focus=null) {
+    const w = Math.max(1,Math.round(Number(image && image.width)||1));
+    const h = Math.max(1,Math.round(Number(image && image.height)||1));
+    focus = validFocus(focus,w,h);
+    try { return analyze({width:w,height:h,data:image && image.data},null,focus); }
+    catch (_) { return fallback(w,h,focus); }
+  }
+  function validFocus(focus,w,h) {
+    return Array.isArray(focus) && focus.length===2 && focus.every(Number.isFinite)
+      ? [clamp(focus[0],0,w-1),clamp(focus[1],0,h-1)] : null;
+  }
+  // Build 02.2 retains the base detection and uses sparse, nested density levels.
+  // Suppress overlapping, contained, or nearly co-centered copies at both scales.
+  function duplicate(a,b) {
+    const intersection=Math.max(0,Math.min(a[2],b[2])-Math.max(a[0],b[0]))
+      *Math.max(0,Math.min(a[3],b[3])-Math.max(a[1],b[1]));
+    const dx=((a[0]+a[2])-(b[0]+b[2]))/((a[2]-a[0])+(b[2]-b[0]));
+    const dy=((a[1]+a[3])-(b[1]+b[3]))/((a[3]-a[1])+(b[3]-b[1]));
+    return iou(a,b)>=.32 || intersection/Math.min(area(a),area(b))>=.68 || Math.hypot(dx,dy)<.65;
+  }
+  function mediumPool(boxes,w,h) {
+    const candidates=unique([...boxes.slice(1),...detailFallback(boxes[0],w,h)]);
+    // A broad first candidate can hide all details. Prefer the earliest valid
+    // triplet, using only the existing near-main candidates and local fallbacks.
+    for(let i=0;i<candidates.length;i++) for(let j=i+1;j<candidates.length;j++) {
+      if(duplicate(candidates[i],candidates[j]))continue;
+      for(let k=j+1;k<candidates.length;k++)
+        if(!duplicate(candidates[i],candidates[k]) && !duplicate(candidates[j],candidates[k]))
+          return [candidates[i],candidates[j],candidates[k]];
+    }
+    for(let i=0;i<candidates.length;i++) for(let j=i+1;j<candidates.length;j++)
+      if(!duplicate(candidates[i],candidates[j]))return [candidates[i],candidates[j]];
+    return candidates.slice(0,1);
+  }
+
+  const layerCache = new WeakMap();
+  function microBoxes(frame, seed) {
+    const { width:w, height:h, boxes, subject, detail } = frame;
+    const main = boxes[0], mw = main[2]-main[0], mh = main[3]-main[1];
+    if (!subject || !detail || Math.min(w,h)<32 || mw<20 || mh<20) return [];
+    const roi = [Math.max(0,Math.floor(main[0]-.15*mw)),Math.max(0,Math.floor(main[1]-.15*mh)),
+      Math.min(w,Math.ceil(main[2]+.15*mw)),Math.min(h,Math.ceil(main[3]+.15*mh))];
+    const weights = new Float32Array(w*h);
+    let total = 0;
+    for (let y=roi[1];y<roi[3];y++) for (let x=roi[0];x<roi[2];x++) {
+      const i=y*w+x;
+      const affinity=(x<main[0]||x>=main[2]?.35:1)*(y<main[1]||y>=main[3]?.35:1);
+      const focusAffinity=frame.focus ? .08+.92*Math.exp(-.5*(((x-frame.focus[0])/(.30*mw))**2+((y-frame.focus[1])/(.30*mh))**2)) : 1;
+      weights[i] = detail[i]**1.3*(frame.focus ? .25+.75*subject[i]**1.4 : .05+.95*subject[i]**1.4)*affinity*focusAffinity; total += weights[i];
+    }
+    if (total<1e-5) return [];
+    const peaks = Float32Array.from(weights), anchors = [];
+    let strongest = 0; for (const value of weights) strongest = Math.max(strongest,value);
+    const nx = Math.max(1,Math.round(.13*mw)), ny = Math.max(1,Math.round(.13*mh));
+    for (let p=0;p<5;p++) {
+      let index = 0;
+      for (let i=1;i<peaks.length;i++) if (peaks[i]>peaks[index]) index=i;
+      if (peaks[index]<Math.max(1e-7,.08*strongest)) break;
+      const x=index%w,y=Math.floor(index/w); anchors.push([x,y]);
+      for (let yy=Math.max(roi[1],y-ny);yy<Math.min(roi[3],y+ny+1);yy++)
+        peaks.fill(0,yy*w+Math.max(roi[0],x-nx),yy*w+Math.min(roi[2],x+nx+1));
+    }
+    if (!anchors.length) return [];
+    // Local weighted sampling creates clusters around image details, not frame-wide noise.
+    const rx=Math.max(1,Math.round(.065*mw)),ry=Math.max(1,Math.round(.065*mh));
+    const neighborhoods=anchors.map(([cx,cy])=>{
+      const indices=[],cdf=[];let mass=0;
+      for(let y=Math.max(roi[1],cy-ry);y<Math.min(roi[3],cy+ry+1);y++)
+        for(let x=Math.max(roi[0],cx-rx);x<Math.min(roi[2],cx+rx+1);x++) {
+          const i=y*w+x;mass+=weights[i];indices.push(i);cdf.push(mass);
+        }
+      return {indices,cdf,mass};
+    });
+    let state=Number(seed)>>>0;
+    const random=()=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return state/4294967296;};
+    const mediumMin=Math.min(...frame.medium.map(area));
+    const maximum=Math.min(.012*mw*mh,.25*mediumMin);
+    if(maximum<4) return [];
+    const result=[];
+    for(let i=0;i<180 && result.length<9;i++) {
+      const local=neighborhoods[i%neighborhoods.length], target=random()*local.mass;
+      let low=0,high=local.cdf.length-1;
+      while(low<high){const mid=(low+high)>>1;if(local.cdf[mid]<=target)low=mid+1;else high=mid;}
+      const index=local.indices[low],cx=index%w,cy=Math.floor(index/w);
+      const size=Math.min((.0025+.0095*random())*mw*mh,maximum),aspect=Math.exp(Math.log(.55)+random()*Math.log(2.3/.55));
+      let bw=Math.max(2,Math.min(roi[2]-roi[0],Math.round(Math.sqrt(size*aspect))));
+      let bh=Math.max(2,Math.min(roi[3]-roi[1],Math.round(Math.sqrt(size/aspect))));
+      while(bw*bh>maximum && (bw>2 || bh>2)) { if(bw>=bh && bw>2)bw--;else if(bh>2)bh--;else bw--; }
+      const x=clamp(Math.round(cx-bw/2),roi[0],roi[2]-bw),y=clamp(Math.round(cy-bh/2),roi[1],roi[3]-bh);
+      const box=[x,y,x+bw,y+bh];
+      if(result.every(previous=>!duplicate(box,previous)))result.push(box);
+    }
+    return result;
+  }
+  function layers(image, structure=45, seed=0, focus=null) {
+    const w=Math.max(1,Math.round(Number(image&&image.width)||1));
+    const h=Math.max(1,Math.round(Number(image&&image.height)||1));
+    const amount=clamp(Number(structure)||0,0,100), key=Number(seed)>>>0;
+    focus=validFocus(focus,w,h);
+    const focusKey=focus ? focus.join(',') : 'auto';
+    let frame=image&&typeof image==='object'?layerCache.get(image):null;
+    if(!frame || frame.focusKey!==focusKey){
+      frame={width:w,height:h,micro:new Map(),focus,focusKey};
+      try {frame.boxes=analyze({width:w,height:h,data:image&&image.data},frame,focus);}
+      catch (_) {frame.boxes=fallback(w,h,focus);}
+      frame.medium=mediumPool(frame.boxes,w,h);
+      if(image&&typeof image==='object')layerCache.set(image,frame);
+    }
+    if(!frame.micro.has(key))frame.micro.set(key,microBoxes(frame,key));
+    const t=amount/100, copy=b=>b.slice();
+    return {main:[copy(frame.boxes[0])],
+      medium:frame.medium.slice(0,1+Math.floor(2*t+.5)).map(copy),
+      micro:frame.micro.get(key).slice(0,Math.floor(8*t+2*Math.max(0,t-.5)+.5)).map(copy)};
+  }
+  root.ObserverDetector = { detect, fit, fallback, layers };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+/* Build 02.3 Overlay: cached rectangles and one independent word stream. */
+(function (root) {
+  'use strict';
+  const EMOTION_POOL = Object.freeze([
+    'MELANCHOLY', 'HESITATION', 'SORROW', 'UNEASE', 'ANXIETY', 'GRIEF',
+    'REGRET', 'SHAME', 'GUILT', 'JEALOUSY', 'ENVY', 'LONELINESS', 'FEAR',
+    'DREAD', 'ANGER', 'FRUSTRATION', 'SADNESS', 'JOY', 'DELIGHT', 'RELIEF',
+    'HOPE', 'GRATITUDE', 'AFFECTION', 'TENDERNESS', 'NOSTALGIA', 'AWE',
+    'SERENITY', 'CALM', 'AMBIVALENCE', 'DETACHMENT'
+  ]);
+  const STROKE_WIDTHS = Object.freeze({Thin: 1, Medium: 2, Thick: 4});
+  const LABEL_MODES = Object.freeze(['Off', 'Emotion Pool', 'Custom Text']);
+  const CUSTOM_TEXT_MAX_LENGTH = 32;
+  const BLUE = 'rgb(0, 80, 255)';
+  const nextRandomState = state => (Math.imul(1664525, Number(state) >>> 0) + 1013904223) >>> 0;
+
+  function createWordState(seed = 0) {
+    const rngState = nextRandomState(seed);
+    return {word: EMOTION_POOL[rngState % EMOTION_POOL.length], rngState};
+  }
+
+  function shuffleWord(state) {
+    const current = state && EMOTION_POOL.includes(state.word) ? state : createWordState();
+    const rngState = nextRandomState(current.rngState);
+    // Select among the other 29 words: one click always changes the word,
+    // without retry loops, shared Math.random(), or the detector's Seed.
+    let index = rngState % (EMOTION_POOL.length - 1);
+    if (index >= EMOTION_POOL.indexOf(current.word)) index++;
+    return {word: EMOTION_POOL[index], rngState};
+  }
+
+  function imageSeed(imageData) {
+    if (!imageData || !imageData.data) return 0;
+    let seed = 2166136261;
+    const mix = value => { seed = Math.imul(seed ^ value, 16777619) >>> 0; };
+    for (const dimension of [imageData.width, imageData.height]) {
+      for (let shift = 0; shift < 32; shift += 8) mix((dimension >>> shift) & 255);
+    }
+    // FNV-1a over the retained analysis pixels works offline, without WebCrypto.
+    for (const value of imageData.data) mix(value);
+    return seed;
+  }
+
+  function cleanCustomText(text) {
+    return String(text == null ? '' : text).slice(0, 256)
+      .replace(/[^A-Za-z '\-]+/g, ' ').toUpperCase()
+      .replace(/\s+/g, ' ').trim().slice(0, CUSTOM_TEXT_MAX_LENGTH).trim();
+  }
+
+  function strokePixels(value) {
+    return typeof value === 'string' ? (STROKE_WIDTHS[value] || 2)
+      : ([1, 2, 4].includes(value) ? value : 2);
+  }
+
+  function intersection(a, b) {
+    return Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]))
+      * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  }
+
+  function layoutLabels(context, width, height, layers, text, strokeWidth = 'Medium') {
+    text = cleanCustomText(text);
+    if (!text || Math.min(width, height) < 8) return [];
+    const margin = 2, gap = Math.max(4, strokePixels(strokeWidth) + 2);
+    const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+    let size = Math.max(11, Math.min(20, Math.round(Math.min(width, height) * .018)));
+    let metrics, font, inkLeft, inkTop, textWidth, textHeight;
+    context.save();
+    try {
+      context.textAlign = 'left';
+      context.textBaseline = 'alphabetic';
+      while (size >= 8) {
+        font = `${size}px Arial, Helvetica, sans-serif`;
+        context.font = font;
+        metrics = context.measureText(text);
+        // Measure ink rather than only advance width. The fallback supports
+        // older browsers that expose width but not actualBoundingBox fields.
+        const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
+        inkLeft = Math.floor(-finite(metrics.actualBoundingBoxLeft, 0));
+        inkTop = Math.floor(-finite(metrics.actualBoundingBoxAscent, size));
+        const inkRight = Math.ceil(finite(metrics.actualBoundingBoxRight, metrics.width));
+        const inkBottom = Math.ceil(finite(metrics.actualBoundingBoxDescent, Math.ceil(size * .3)));
+        textWidth = Math.max(1, inkRight - inkLeft);
+        textHeight = Math.max(1, inkBottom - inkTop);
+        if (textWidth <= width - 2 * margin && textHeight <= height - 2 * margin) break;
+        size--;
+      }
+      if (size < 8) return [];
+
+      const placed = [];
+      // Main is placed first; secondary medium labels can yield to readability.
+      // Micro boxes deliberately never participate in this text pass.
+      for (const tier of ['main', 'medium']) {
+        for (const [index, box] of (layers[tier] || []).entries()) {
+          const [x1, y1, x2, y2] = box;
+          const positions = [
+            [x1, y1 - gap - textHeight], [x1 + gap, y1 + gap],
+            [x2 - textWidth, y1 - gap - textHeight], [x1, y2 + gap],
+            [x2 + gap, y1 + gap], [x1 - gap - textWidth, y1 + gap],
+            [x1 + gap, y2 - gap - textHeight]
+          ];
+          const seen = new Set(), candidates = [];
+          function candidate(x, y, priority) {
+            x = clamp(Math.round(x), margin, width - margin - textWidth);
+            y = Math.round(y);
+            if (y < margin || y + textHeight > height - margin) return;
+            const bounds = [x, y, x + textWidth, y + textHeight];
+            const key = bounds.join(',');
+            if (seen.has(key)) return;
+            seen.add(key);
+            const padded = [x - 2, y - 2, x + textWidth + 2, y + textHeight + 2];
+            const collision = placed.reduce((total, label) => total + intersection(padded, label.bounds), 0);
+            candidates.push({bounds, collision, priority});
+          }
+          positions.forEach(([x, y], priority) => candidate(x, y, priority));
+          if (!candidates.length) {
+            candidate(x1, clamp(Math.round(y1), margin, height - margin - textHeight), positions.length);
+          }
+          candidates.sort((a, b) => a.collision - b.collision || a.priority - b.priority);
+          const best = candidates[0];
+          if (!best || (tier === 'medium' && best.collision > .15 * textWidth * textHeight)) continue;
+          placed.push({tier, index, text, bounds: best.bounds,
+            position: [best.bounds[0] - inkLeft, best.bounds[1] - inkTop], font});
+        }
+      }
+      return placed;
+    } finally {
+      context.restore();
+    }
+  }
+
+  function render(context, sourceCanvas, layers, options = {}) {
+    const width = context.canvas.width, height = context.canvas.height;
+    const stroke = strokePixels(options.strokeWidth == null ? 'Medium' : options.strokeWidth);
+    const mode = options.labelMode == null ? 'Emotion Pool' : options.labelMode;
+    let text = '';
+    if (mode === 'Emotion Pool') text = EMOTION_POOL.includes(options.word) ? options.word : createWordState().word;
+    else if (mode === 'Custom Text') text = cleanCustomText(options.customText);
+    context.save();
+    try {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = 1;
+      context.globalCompositeOperation = 'source-over';
+      context.beginPath();
+      context.rect(0, 0, width, height);
+      context.clip();
+      context.clearRect(0, 0, width, height);
+      context.drawImage(sourceCanvas, 0, 0);
+      context.fillStyle = BLUE;
+      for (const tier of ['main', 'medium', 'micro']) {
+        for (const box of layers[tier] || []) {
+          if (!box.every(Number.isFinite)) continue;
+          const x1 = Math.max(0, Math.trunc(box[0])), y1 = Math.max(0, Math.trunc(box[1]));
+          const x2 = Math.min(width, Math.trunc(box[2])), y2 = Math.min(height, Math.trunc(box[3]));
+          if (x2 <= x1 || y2 <= y1) continue;
+          const line = Math.min(stroke, x2 - x1, y2 - y1);
+          // Keep the complete stroke inside the unchanged exclusive box bounds.
+          context.fillRect(x1, y1, x2 - x1, line);
+          context.fillRect(x1, y2 - line, x2 - x1, line);
+          context.fillRect(x1, y1, line, y2 - y1);
+          context.fillRect(x2 - line, y1, line, y2 - y1);
+        }
+      }
+      const labels = layoutLabels(context, width, height, layers, text, stroke);
+      context.textAlign = 'left';
+      context.textBaseline = 'alphabetic';
+      for (const label of labels) {
+        context.font = label.font;
+        context.fillText(label.text, label.position[0], label.position[1]);
+      }
+      return labels;
+    } finally {
+      context.restore();
+    }
+  }
+
+  root.ObserverOverlay = Object.freeze({EMOTION_POOL, STROKE_WIDTHS, LABEL_MODES,
+    CUSTOM_TEXT_MAX_LENGTH, createWordState, shuffleWord, imageSeed, cleanCustomText,
+    layoutLabels, render});
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+    "use strict";
+    const upload = document.getElementById("upload");
+    const dropZone = document.getElementById("dropZone");
+    const original = document.getElementById("original");
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+    const originalPlaceholder = document.getElementById("originalPlaceholder");
+    const outputPlaceholder = document.getElementById("outputPlaceholder");
+    const structure = document.getElementById("structure");
+    const structureValue = document.getElementById("structureValue");
+    const resetFocus = document.getElementById("resetFocus");
+    const strokeWidth = document.getElementById("strokeWidth");
+    const labelMode = document.getElementById("labelMode");
+    const customText = document.getElementById("customText");
+    const customTextField = document.getElementById("customTextField");
+    const shuffleWord = document.getElementById("shuffleWord");
+    const downloadPNG = document.getElementById("downloadPNG");
+    let generation = 0, retained = null, focus = null, structureTimer;
+    let cachedLayers = null, wordState = null, pendingExport = null;
+
+    function clearImages() {
+      clearTimeout(structureTimer);
+      retained = null;
+      focus = null;
+      cachedLayers = wordState = pendingExport = null;
+      resetFocus.disabled = true;
+      downloadPNG.disabled = shuffleWord.disabled = true;
+      delete original.dataset.focus;
+      delete output.dataset.focus;
+      for (const canvas of [original, output]) {
+        canvas.hidden = true;
+        canvas.width = canvas.height = 1;
+      }
+      delete output.dataset.boxes;
+      delete output.dataset.layers;
+      delete output.dataset.structure;
+      for (const key of ["word", "labels", "stroke", "mode"]) delete output.dataset[key];
+      originalPlaceholder.hidden = outputPlaceholder.hidden = false;
+    }
+
+    function message(text, state) {
+      status.textContent = text;
+      status.dataset.state = state;
+    }
+
+    function renderOutput() {
+      if (!retained) return;
+      const {data, width, height} = retained, amount = Number(structure.value);
+      let result;
+      try {
+        const analysisFocus = focus && data ? [focus[0]*data.width/width,focus[1]*data.height/height] : null;
+        const detected = data ? ObserverDetector.layers(data, amount, 0, analysisFocus) : null;
+        if (!detected) throw new Error("Analysis unavailable");
+        const sx = width / data.width, sy = height / data.height;
+        const scale = (box, kind) => {
+          const b = [box[0]*sx,box[1]*sy,box[2]*sx,box[3]*sy];
+          if (kind !== "micro") return ObserverDetector.fit(b,width,height,
+            kind === "main" ? .08 : .008,kind === "main" ? .8 : .14);
+          const x1 = Math.max(0,Math.min(width-1,Math.round(b[0])));
+          const y1 = Math.max(0,Math.min(height-1,Math.round(b[1])));
+          return [x1,y1,Math.max(x1+1,Math.min(width,Math.round(b[2]))),
+            Math.max(y1+1,Math.min(height,Math.round(b[3])))];
+        };
+        result = Object.fromEntries(["main","medium","micro"].map(kind =>
+          [kind,detected[kind].map(box => scale(box,kind))]));
+      } catch (error) {
+        console.warn("Using the stable detection fallback.", error);
+        const boxes = ObserverDetector.fallback(width,height,focus);
+        const count = 1+Math.floor(2*Math.min(100,Math.max(0,amount))/100+.5);
+        result = {main:boxes.slice(0,1),medium:boxes.slice(1,1+count),micro:[]};
+      }
+      cachedLayers = result;
+      output.dataset.focus = original.dataset.focus = JSON.stringify(focus);
+      resetFocus.disabled = !focus;
+      output.dataset.layers = JSON.stringify(result);
+      output.dataset.structure = String(amount);
+      output.dataset.boxes = JSON.stringify([...result.main,...result.medium,...result.micro]);
+      renderOverlay();
+      original.hidden = output.hidden = false;
+      originalPlaceholder.hidden = outputPlaceholder.hidden = true;
+    }
+
+    function updateLabelControls() {
+      customTextField.hidden = labelMode.value !== "Custom Text";
+      shuffleWord.hidden = labelMode.value !== "Emotion Pool";
+      shuffleWord.disabled = !retained || !cachedLayers;
+    }
+
+    // Display controls consume cached pixel-coordinate boxes only. They never
+    // call renderOutput(), ObserverDetector.layers(), or the detector's RNG.
+    function renderOverlay() {
+      updateLabelControls();
+      if (!retained || !cachedLayers) return;
+      const labels = ObserverOverlay.render(output.getContext("2d"), original, cachedLayers, {
+        strokeWidth: strokeWidth.value, labelMode: labelMode.value,
+        word: wordState && wordState.word, customText: customText.value
+      });
+      output.dataset.word = wordState ? wordState.word : "";
+      output.dataset.labels = JSON.stringify(labels);
+      output.dataset.stroke = strokeWidth.value;
+      output.dataset.mode = labelMode.value;
+      downloadPNG.disabled = !!pendingExport;
+    }
+
+    async function showImage(file) {
+      const current = ++generation;
+      clearImages();
+      if (!file) {
+        message("请选择一张图片。", "empty");
+        return;
+      }
+      message("正在分析图片…", "loading");
+      let objectURL;
+      try {
+        // Inspect file signatures instead of trusting an extension or MIME type.
+        const header = new Uint8Array(await file.slice(0,12).arrayBuffer());
+        if (current !== generation) return;
+        const jpeg = header[0]===255 && header[1]===216 && header[2]===255;
+        const pngSignature = [137,80,78,71,13,10,26,10];
+        const png = pngSignature.every((value,index) => header[index]===value);
+        if (!jpeg && !png) throw new Error("请使用完整的 JPG 或 PNG 图片。");
+        objectURL = URL.createObjectURL(file);
+        const image = new Image();
+        image.src = objectURL;
+        // Current Chrome / Edge apply JPEG EXIF orientation during decoding.
+        await image.decode();
+        if (current !== generation) return;
+        const scale = Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));
+        const width = Math.max(1,Math.round(image.naturalWidth*scale));
+        const height = Math.max(1,Math.round(image.naturalHeight*scale));
+        original.width = output.width = width;
+        original.height = output.height = height;
+        const sourceContext = original.getContext("2d",{willReadFrequently:true});
+        sourceContext.fillStyle = "#fff";
+        sourceContext.fillRect(0,0,width,height);
+        sourceContext.imageSmoothingQuality = "high";
+        sourceContext.drawImage(image,0,0,width,height);
+        let data = null;
+        try {
+          const analysis = document.createElement("canvas");
+          const analysisScale = Math.min(1,480/Math.max(width,height));
+          analysis.width = Math.max(1,Math.round(width*analysisScale));
+          analysis.height = Math.max(1,Math.round(height*analysisScale));
+          const context = analysis.getContext("2d",{willReadFrequently:true});
+          context.drawImage(original,0,0,analysis.width,analysis.height);
+          data = context.getImageData(0,0,analysis.width,analysis.height);
+        } catch (error) { console.warn("Using the stable detection fallback.",error); }
+        retained = {data,width,height};
+        // A separate image-bound word stream: regular repaint, Focus and
+        // Structure changes must not advance it. No shared Math.random().
+        wordState = ObserverOverlay.createWordState(ObserverOverlay.imageSeed(data));
+        // Read the current slider after decoding; pending uploads use its latest value.
+        renderOutput();
+        message(`${file.name} · ${width} × ${height} · 完成`,"done");
+      } catch (error) {
+        if (current !== generation) return;
+        clearImages();
+        message(error.message.includes("JPG") ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。","error");
+      } finally {
+        if (objectURL) URL.revokeObjectURL(objectURL);
+      }
+    }
+
+    original.addEventListener("click",event => {
+      if (!retained || original.hidden) return;
+      // The canvas element itself has the image's intrinsic ratio. Its CSS box
+      // has no border/padding/letterboxing, so client-to-pixel scaling is exact
+      // even in a narrow viewport or after the page has been scrolled.
+      const bounds=original.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      focus=[Math.min(original.width-1,Math.max(0,Math.floor((event.clientX-bounds.left)*original.width/bounds.width))),
+        Math.min(original.height-1,Math.max(0,Math.floor((event.clientY-bounds.top)*original.height/bounds.height)))];
+      clearTimeout(structureTimer);
+      renderOutput();
+    });
+    resetFocus.addEventListener("click",() => {
+      focus=null;
+      clearTimeout(structureTimer);
+      renderOutput();
+    });
+    structure.addEventListener("input",() => {
+      structureValue.value = structure.value;
+      structureValue.textContent = structure.value;
+      clearTimeout(structureTimer);
+      structureTimer = setTimeout(renderOutput,80);
+    });
+    strokeWidth.addEventListener("change", renderOverlay);
+    labelMode.addEventListener("change", renderOverlay);
+    customText.addEventListener("input", () => {
+      // Synchronous local updates preserve a trailing space while typing a
+      // phrase, and preserve the caret when editing in the middle of a word.
+      const sanitize = value => value.replace(/[^A-Za-z '\-]/g, "").toUpperCase().slice(0,32);
+      const caret = sanitize(customText.value.slice(0,customText.selectionStart)).length;
+      customText.value = sanitize(customText.value);
+      customText.setSelectionRange(caret,caret);
+      renderOverlay();
+    });
+    shuffleWord.addEventListener("click", () => {
+      if (!retained || !cachedLayers || labelMode.value !== "Emotion Pool") return;
+      wordState = ObserverOverlay.shuffleWord(wordState);
+      renderOverlay();
+    });
+    downloadPNG.addEventListener("click", () => {
+      if (!retained || !cachedLayers || pendingExport) return;
+      const token = {generation};
+      pendingExport = token;
+      downloadPNG.disabled = true;
+      // Freeze the visible result at click time. Later parameter changes cannot
+      // change this export; uploading a new image cancels its stale callback.
+      const snapshot = document.createElement("canvas");
+      snapshot.width = output.width;
+      snapshot.height = output.height;
+      snapshot.getContext("2d").drawImage(output,0,0);
+      const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
+      const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
+      const filename = `image_observer_html_build_02_3_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      function finish(blob) {
+        snapshot.width = snapshot.height = 1;
+        if (pendingExport !== token || generation !== token.generation) return;
+        pendingExport = null;
+        downloadPNG.disabled = false;
+        if (!blob) { message("PNG 保存失败，请重试。","error"); return; }
+        const url = URL.createObjectURL(blob), link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url),1000);
+      }
+      try { snapshot.toBlob(finish,"image/png"); }
+      catch (_) { finish(null); }
+    });
+    upload.addEventListener("change",() => showImage(upload.files[0]));
+    // Reset just the picker so selecting the same file again triggers analysis.
+    upload.addEventListener("click",() => { upload.value = ""; });
+    for (const eventName of ["dragenter","dragover"]) {
+      dropZone.addEventListener(eventName,event => {
+        event.preventDefault();
+        dropZone.classList.add("dragging");
+      });
+    }
+    dropZone.addEventListener("dragleave",() => dropZone.classList.remove("dragging"));
+    dropZone.addEventListener("drop",event => {
+      event.preventDefault();
+      dropZone.classList.remove("dragging");
+      showImage(event.dataTransfer.files[0]);
+    });
+  </script>
+</body>
+</html>
