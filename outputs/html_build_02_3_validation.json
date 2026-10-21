@@ -1,0 +1,349 @@
+{
+  "version": "HTML Build02.3",
+  "html_sha256": "5d3e3a55e7bbe372d371c24ea7a025cd382f5dc1ab924960e37e6180c6b7462c",
+  "detector_script_sha256": "31869b2b364eadb713e3b35df237817a739c5d20ed7d5538c17322ef9084c3d7",
+  "baseline_html_sha256": "d4ec7a9badb7ad666153626cc8d4d3a57aaf8e13d2861f6ca6e3f60d338b198c",
+  "baselineCases": [
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": null,
+      "structure": 100,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        430,
+        520
+      ],
+      "structure": 100,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_01",
+      "focus": [
+        530,
+        950
+      ],
+      "structure": 100,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": null,
+      "structure": 100,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        750,
+        510
+      ],
+      "structure": 100,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 0,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 50,
+      "matched": true
+    },
+    {
+      "image": "detection_02",
+      "focus": [
+        1200,
+        650
+      ],
+      "structure": 100,
+      "matched": true
+    }
+  ],
+  "records": [
+    {
+      "image": "detection_01",
+      "subject": "portrait",
+      "size": [
+        909,
+        1447
+      ],
+      "focus": [
+        430,
+        518
+      ],
+      "baseline": "detection_01_portrait_html_build_02_2_baseline_s050_focus_x0430_y0518.png",
+      "pool": "SHAME",
+      "shuffleWords": [
+        "SHAME",
+        "CALM",
+        "MELANCHOLY",
+        "DREAD"
+      ],
+      "displayOnlyDetectionCalls": 0,
+      "outputs": [
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_A_thin_off.png",
+          "sha256": "9cfdcad3be7972eec698180b920d3260a3df6b092088c14717225066eab8db22"
+        },
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_B_medium_emotion_pool.png",
+          "sha256": "6f75e504acb8bf512fb37709bc5d8edeb43e4961ddc5f8c4e3ed8f1ff3014019"
+        },
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_C_thick_custom_melancholy.png",
+          "sha256": "b850a645be3d479c212b8e56caa98dbbcd079dec31e842ea2255ecbcdc48fa54"
+        },
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_D_medium_pool_shuffle_1.png",
+          "sha256": "3fce06c8c00fa24eb785c283e3d32a37221b5ee5fe762a40beadcd1efb33deb5"
+        },
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_D_medium_pool_shuffle_2.png",
+          "sha256": "53e10c30a6ed1da5085ebc6bfb31dc44092f145c43a856c5783531a381c94275"
+        },
+        {
+          "file": "detection_01_portrait_html_build_02_3_s050_focus_x0430_y0518_D_medium_pool_shuffle_3.png",
+          "sha256": "8ab3aab3bac21cf985bd878a5c0c18b44bcfb28a180ed03fd8861bd0c8c9e0ec"
+        }
+      ]
+    },
+    {
+      "image": "detection_02",
+      "subject": "cow",
+      "size": [
+        1600,
+        1061
+      ],
+      "focus": [
+        750,
+        510
+      ],
+      "baseline": "detection_02_cow_html_build_02_2_baseline_s050_focus_x0750_y0510.png",
+      "pool": "SORROW",
+      "shuffleWords": [
+        "SORROW",
+        "AFFECTION",
+        "GRATITUDE",
+        "SORROW"
+      ],
+      "displayOnlyDetectionCalls": 0,
+      "outputs": [
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_A_thin_off.png",
+          "sha256": "d1f365eb920817c3259df8e46ea80e1c56b8adea39b1ae4c940033c938aaf2e7"
+        },
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_B_medium_emotion_pool.png",
+          "sha256": "a0c28f947f044bfe6d946080e2d685685a717902ee8018f6ebe503976c75fe5f"
+        },
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_C_thick_custom_melancholy.png",
+          "sha256": "10baeddedaddb12eb083418b3aa8e507bfbfa94a87344c005545d048eb22320f"
+        },
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_D_medium_pool_shuffle_1.png",
+          "sha256": "9bce65010c64c8acacfa0264db0333d7c13a100c9bd649ae34aea247eb753dcf"
+        },
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_D_medium_pool_shuffle_2.png",
+          "sha256": "991c68c79cbee7b16ff81f2bb25de2d2fa5dda311f0f1565e4e362b1ef6f6e86"
+        },
+        {
+          "file": "detection_02_cow_html_build_02_3_s050_focus_x0750_y0510_D_medium_pool_shuffle_3.png",
+          "sha256": "a0c28f947f044bfe6d946080e2d685685a717902ee8018f6ebe503976c75fe5f"
+        }
+      ]
+    }
+  ],
+  "dimensions": [
+    {
+      "input": [
+        137,
+        101
+      ],
+      "output": [
+        137,
+        101
+      ]
+    },
+    {
+      "input": [
+        300,
+        600
+      ],
+      "output": [
+        300,
+        600
+      ]
+    },
+    {
+      "input": [
+        700,
+        700
+      ],
+      "output": [
+        700,
+        700
+      ]
+    },
+    {
+      "input": [
+        2000,
+        1000
+      ],
+      "output": [
+        1600,
+        800
+      ]
+    },
+    {
+      "input": [
+        1,
+        1
+      ],
+      "output": [
+        1,
+        1
+      ]
+    }
+  ],
+  "checks": [
+    "18 exact HTML02.2 coordinate cases match; Detection script byte-identical",
+    "all 1/2/4px strokes are inward and exact pixel coverage",
+    "A/B/C and 3 Shuffle PNGs per image are actual downloads identical to Canvas",
+    "custom uppercases,32-char limit,word and phrase typing",
+    "labels main/medium only,one word,bounds",
+    "display-only controls never call Detection",
+    "Structure preserves Focus and word",
+    "two independent browser contexts have isolated image/focus/boxes/words",
+    "Reset auto/same-image deterministic word initialization/new upload clears Focus",
+    "invalid and corrupt image clear previews",
+    "landscape/portrait/square/no enlargement/1600 cap/tiny fallback",
+    "network-disabled in-memory HTML upload and labels work; actual file:// navigation blocked by environment policy"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "offline": {
+    "networkDisabled": true,
+    "inMemorySelfContainedHTML": true,
+    "fileProtocolActualTest": "blocked by environment administrator policy; not claimed passed"
+  },
+  "publication": "none; no Pages deployment or source push by QA",
+  "exportEdgeCases": {
+    "html_sha256": "5d3e3a55e7bbe372d371c24ea7a025cd382f5dc1ab924960e37e6180c6b7462c",
+    "snapshotFrozenAtClick": true,
+    "presetChangedBeforeAsyncCallback": true,
+    "oldGenerationExportCancelled": true,
+    "networkOfflineDocumentUploadAndPNG": true,
+    "remoteRequests": [],
+    "frontendErrors": [],
+    "fileProtocol": "actual file:// navigation blocked by administrator policy; offline setContent instead; no bypass"
+  },
+  "package": {
+    "file": "Image-Observer-HTML-Build-02.3.zip",
+    "bytes": 18919,
+    "sha256": "07463d1762d02dc8aaf226ad91ff63ec6abad63b2ba2ea09e38aa6c5f6e3ad9e",
+    "crc": "passed",
+    "entrypoint_matches_tested_html": true,
+    "files": [
+      "Image-Observer-Build-02.3.html",
+      "README.txt",
+      "BUILD_INFO.json"
+    ]
+  },
+  "comparison_images": [
+    "detection_01_html_build_02_3_comparison.png",
+    "detection_02_html_build_02_3_comparison.png"
+  ],
+  "github_pages_deployed": false
+}

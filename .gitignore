@@ -2,5 +2,7 @@
 __pycache__/
 *.py[cod]
 .gradio/
+*.log
+/archive/render-preparation-not-deployed.zip
 outputs/*
 !outputs/.gitkeep

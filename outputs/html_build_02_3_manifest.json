@@ -1,0 +1,25 @@
+{
+  "product": "IMAGE OBSERVER",
+  "build": "02.3",
+  "architecture": "HTML + CSS + JavaScript / Canvas only",
+  "entrypoint": "Image-Observer-Build-02.3.html",
+  "page_title": "IMAGE OBSERVER · BUILD 02.3",
+  "complete_source_in_entrypoint": true,
+  "external_runtime_dependencies": [],
+  "backend_required": false,
+  "online_api_used": false,
+  "website_deployed": false,
+  "historical_html_included": false,
+  "python_or_bat_included": false,
+  "emotion_pool_count": 30,
+  "stroke_widths": {
+    "Thin": 1,
+    "Medium": 2,
+    "Thick": 4
+  },
+  "html_sha256": "5d3e3a55e7bbe372d371c24ea7a025cd382f5dc1ab924960e37e6180c6b7462c",
+  "unchanged_detector_script_sha256": "31869b2b364eadb713e3b35df237817a739c5d20ed7d5538c17322ef9084c3d7",
+  "baseline_html02_2_sha256": "d4ec7a9badb7ad666153626cc8d4d3a57aaf8e13d2861f6ca6e3f60d338b198c",
+  "browser_test": "Chromium; static HTTP and network-disabled self-contained document",
+  "file_protocol_test": "blocked by environment policy; actual offline local-file opening awaits user verification"
+}

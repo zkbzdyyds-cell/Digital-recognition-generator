@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>image-observer-v1 · Detection Build 02.2</title>
+  <title>IMAGE OBSERVER · BUILD 02.3</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
     * { box-sizing: border-box; }
@@ -36,6 +36,19 @@
     #original { cursor: crosshair; }
     #resetFocus { margin-top: 14px; padding: 7px 11px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
     #resetFocus:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .actions #resetFocus { margin-top: 0; }
+    button, select, input { font: inherit; }
+    button:disabled { opacity: .5; cursor: default; }
+    #downloadPNG, #shuffleWord { padding: 8px 12px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
+    #downloadPNG { color: #0050ff; border-color: #8aafff; }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 18px 0 0; font-size: 13px; }
+    .control { display: flex; flex-direction: column; gap: 7px; }
+    .control select, #customText { padding: 8px 10px; color: inherit; background: #fff; border: 1px solid #b9c6d9; border-radius: 6px; }
+    .control select { min-width: 155px; }
+    #customTextField { margin-top: 14px; font-size: 13px; max-width: 460px; }
+    #customText { width: 100%; }
+    button:focus-visible, select:focus-visible, #customText:focus-visible { outline: 2px solid #0050ff; outline-offset: 3px; }
     [hidden] { display: none !important; }
     @media (max-width: 700px) {
       main { padding: 25px 16px; }
@@ -49,8 +62,8 @@
 <body>
   <main>
     <header>
-      <h1>image-observer<span class="version">v1</span></h1>
-      <span class="build">Detection · Build 02.2</span>
+      <h1>IMAGE OBSERVER · BUILD 02.3</h1>
+      <span class="build">Detection</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
     <label class="upload" id="dropZone" for="upload">
@@ -60,7 +73,30 @@
       <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
     </label>
     <label class="structure" for="structure"><span>Structure</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
-    <button id="resetFocus" type="button" disabled>Reset Focus / 恢复自动</button>
+    <div class="actions">
+      <button id="resetFocus" type="button" disabled>Reset Focus / 恢复自动</button>
+      <button id="downloadPNG" type="button" disabled>下载 PNG</button>
+    </div>
+    <div class="controls">
+      <label class="control" for="strokeWidth">Stroke Width
+        <select id="strokeWidth">
+          <option value="Thin">Thin · 1px</option>
+          <option value="Medium" selected>Medium · 2px</option>
+          <option value="Thick">Thick · 4px</option>
+        </select>
+      </label>
+      <label class="control" for="labelMode">Labels
+        <select id="labelMode">
+          <option value="Off">Off</option>
+          <option value="Emotion Pool" selected>Emotion Pool</option>
+          <option value="Custom Text">Custom Text</option>
+        </select>
+      </label>
+      <button id="shuffleWord" type="button" disabled>换一个 / Shuffle Word</button>
+    </div>
+    <label class="control" id="customTextField" for="customText" hidden>Custom Text · English · 32 characters max
+      <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="MELANCHOLY">
+    </label>
     <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
     <div class="panels">
       <section class="panel" aria-labelledby="originalLabel">
@@ -494,6 +530,188 @@
 
   </script>
   <script>
+/* Build 02.3 Overlay: cached rectangles and one independent word stream. */
+(function (root) {
+  'use strict';
+  const EMOTION_POOL = Object.freeze([
+    'MELANCHOLY', 'HESITATION', 'SORROW', 'UNEASE', 'ANXIETY', 'GRIEF',
+    'REGRET', 'SHAME', 'GUILT', 'JEALOUSY', 'ENVY', 'LONELINESS', 'FEAR',
+    'DREAD', 'ANGER', 'FRUSTRATION', 'SADNESS', 'JOY', 'DELIGHT', 'RELIEF',
+    'HOPE', 'GRATITUDE', 'AFFECTION', 'TENDERNESS', 'NOSTALGIA', 'AWE',
+    'SERENITY', 'CALM', 'AMBIVALENCE', 'DETACHMENT'
+  ]);
+  const STROKE_WIDTHS = Object.freeze({Thin: 1, Medium: 2, Thick: 4});
+  const LABEL_MODES = Object.freeze(['Off', 'Emotion Pool', 'Custom Text']);
+  const CUSTOM_TEXT_MAX_LENGTH = 32;
+  const BLUE = 'rgb(0, 80, 255)';
+  const nextRandomState = state => (Math.imul(1664525, Number(state) >>> 0) + 1013904223) >>> 0;
+
+  function createWordState(seed = 0) {
+    const rngState = nextRandomState(seed);
+    return {word: EMOTION_POOL[rngState % EMOTION_POOL.length], rngState};
+  }
+
+  function shuffleWord(state) {
+    const current = state && EMOTION_POOL.includes(state.word) ? state : createWordState();
+    const rngState = nextRandomState(current.rngState);
+    // Select among the other 29 words: one click always changes the word,
+    // without retry loops, shared Math.random(), or the detector's Seed.
+    let index = rngState % (EMOTION_POOL.length - 1);
+    if (index >= EMOTION_POOL.indexOf(current.word)) index++;
+    return {word: EMOTION_POOL[index], rngState};
+  }
+
+  function imageSeed(imageData) {
+    if (!imageData || !imageData.data) return 0;
+    let seed = 2166136261;
+    const mix = value => { seed = Math.imul(seed ^ value, 16777619) >>> 0; };
+    for (const dimension of [imageData.width, imageData.height]) {
+      for (let shift = 0; shift < 32; shift += 8) mix((dimension >>> shift) & 255);
+    }
+    // FNV-1a over the retained analysis pixels works offline, without WebCrypto.
+    for (const value of imageData.data) mix(value);
+    return seed;
+  }
+
+  function cleanCustomText(text) {
+    return String(text == null ? '' : text).slice(0, 256)
+      .replace(/[^A-Za-z '\-]+/g, ' ').toUpperCase()
+      .replace(/\s+/g, ' ').trim().slice(0, CUSTOM_TEXT_MAX_LENGTH).trim();
+  }
+
+  function strokePixels(value) {
+    return typeof value === 'string' ? (STROKE_WIDTHS[value] || 2)
+      : ([1, 2, 4].includes(value) ? value : 2);
+  }
+
+  function intersection(a, b) {
+    return Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]))
+      * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  }
+
+  function layoutLabels(context, width, height, layers, text, strokeWidth = 'Medium') {
+    text = cleanCustomText(text);
+    if (!text || Math.min(width, height) < 8) return [];
+    const margin = 2, gap = Math.max(4, strokePixels(strokeWidth) + 2);
+    const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+    let size = Math.max(11, Math.min(20, Math.round(Math.min(width, height) * .018)));
+    let metrics, font, inkLeft, inkTop, textWidth, textHeight;
+    context.save();
+    try {
+      context.textAlign = 'left';
+      context.textBaseline = 'alphabetic';
+      while (size >= 8) {
+        font = `${size}px Arial, Helvetica, sans-serif`;
+        context.font = font;
+        metrics = context.measureText(text);
+        // Measure ink rather than only advance width. The fallback supports
+        // older browsers that expose width but not actualBoundingBox fields.
+        const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
+        inkLeft = Math.floor(-finite(metrics.actualBoundingBoxLeft, 0));
+        inkTop = Math.floor(-finite(metrics.actualBoundingBoxAscent, size));
+        const inkRight = Math.ceil(finite(metrics.actualBoundingBoxRight, metrics.width));
+        const inkBottom = Math.ceil(finite(metrics.actualBoundingBoxDescent, Math.ceil(size * .3)));
+        textWidth = Math.max(1, inkRight - inkLeft);
+        textHeight = Math.max(1, inkBottom - inkTop);
+        if (textWidth <= width - 2 * margin && textHeight <= height - 2 * margin) break;
+        size--;
+      }
+      if (size < 8) return [];
+
+      const placed = [];
+      // Main is placed first; secondary medium labels can yield to readability.
+      // Micro boxes deliberately never participate in this text pass.
+      for (const tier of ['main', 'medium']) {
+        for (const [index, box] of (layers[tier] || []).entries()) {
+          const [x1, y1, x2, y2] = box;
+          const positions = [
+            [x1, y1 - gap - textHeight], [x1 + gap, y1 + gap],
+            [x2 - textWidth, y1 - gap - textHeight], [x1, y2 + gap],
+            [x2 + gap, y1 + gap], [x1 - gap - textWidth, y1 + gap],
+            [x1 + gap, y2 - gap - textHeight]
+          ];
+          const seen = new Set(), candidates = [];
+          function candidate(x, y, priority) {
+            x = clamp(Math.round(x), margin, width - margin - textWidth);
+            y = Math.round(y);
+            if (y < margin || y + textHeight > height - margin) return;
+            const bounds = [x, y, x + textWidth, y + textHeight];
+            const key = bounds.join(',');
+            if (seen.has(key)) return;
+            seen.add(key);
+            const padded = [x - 2, y - 2, x + textWidth + 2, y + textHeight + 2];
+            const collision = placed.reduce((total, label) => total + intersection(padded, label.bounds), 0);
+            candidates.push({bounds, collision, priority});
+          }
+          positions.forEach(([x, y], priority) => candidate(x, y, priority));
+          if (!candidates.length) {
+            candidate(x1, clamp(Math.round(y1), margin, height - margin - textHeight), positions.length);
+          }
+          candidates.sort((a, b) => a.collision - b.collision || a.priority - b.priority);
+          const best = candidates[0];
+          if (!best || (tier === 'medium' && best.collision > .15 * textWidth * textHeight)) continue;
+          placed.push({tier, index, text, bounds: best.bounds,
+            position: [best.bounds[0] - inkLeft, best.bounds[1] - inkTop], font});
+        }
+      }
+      return placed;
+    } finally {
+      context.restore();
+    }
+  }
+
+  function render(context, sourceCanvas, layers, options = {}) {
+    const width = context.canvas.width, height = context.canvas.height;
+    const stroke = strokePixels(options.strokeWidth == null ? 'Medium' : options.strokeWidth);
+    const mode = options.labelMode == null ? 'Emotion Pool' : options.labelMode;
+    let text = '';
+    if (mode === 'Emotion Pool') text = EMOTION_POOL.includes(options.word) ? options.word : createWordState().word;
+    else if (mode === 'Custom Text') text = cleanCustomText(options.customText);
+    context.save();
+    try {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = 1;
+      context.globalCompositeOperation = 'source-over';
+      context.beginPath();
+      context.rect(0, 0, width, height);
+      context.clip();
+      context.clearRect(0, 0, width, height);
+      context.drawImage(sourceCanvas, 0, 0);
+      context.fillStyle = BLUE;
+      for (const tier of ['main', 'medium', 'micro']) {
+        for (const box of layers[tier] || []) {
+          if (!box.every(Number.isFinite)) continue;
+          const x1 = Math.max(0, Math.trunc(box[0])), y1 = Math.max(0, Math.trunc(box[1]));
+          const x2 = Math.min(width, Math.trunc(box[2])), y2 = Math.min(height, Math.trunc(box[3]));
+          if (x2 <= x1 || y2 <= y1) continue;
+          const line = Math.min(stroke, x2 - x1, y2 - y1);
+          // Keep the complete stroke inside the unchanged exclusive box bounds.
+          context.fillRect(x1, y1, x2 - x1, line);
+          context.fillRect(x1, y2 - line, x2 - x1, line);
+          context.fillRect(x1, y1, line, y2 - y1);
+          context.fillRect(x2 - line, y1, line, y2 - y1);
+        }
+      }
+      const labels = layoutLabels(context, width, height, layers, text, stroke);
+      context.textAlign = 'left';
+      context.textBaseline = 'alphabetic';
+      for (const label of labels) {
+        context.font = label.font;
+        context.fillText(label.text, label.position[0], label.position[1]);
+      }
+      return labels;
+    } finally {
+      context.restore();
+    }
+  }
+
+  root.ObserverOverlay = Object.freeze({EMOTION_POOL, STROKE_WIDTHS, LABEL_MODES,
+    CUSTOM_TEXT_MAX_LENGTH, createWordState, shuffleWord, imageSeed, cleanCustomText,
+    layoutLabels, render});
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
     "use strict";
     const upload = document.getElementById("upload");
     const dropZone = document.getElementById("dropZone");
@@ -505,13 +723,22 @@
     const structure = document.getElementById("structure");
     const structureValue = document.getElementById("structureValue");
     const resetFocus = document.getElementById("resetFocus");
+    const strokeWidth = document.getElementById("strokeWidth");
+    const labelMode = document.getElementById("labelMode");
+    const customText = document.getElementById("customText");
+    const customTextField = document.getElementById("customTextField");
+    const shuffleWord = document.getElementById("shuffleWord");
+    const downloadPNG = document.getElementById("downloadPNG");
     let generation = 0, retained = null, focus = null, structureTimer;
+    let cachedLayers = null, wordState = null, pendingExport = null;
 
     function clearImages() {
       clearTimeout(structureTimer);
       retained = null;
       focus = null;
+      cachedLayers = wordState = pendingExport = null;
       resetFocus.disabled = true;
+      downloadPNG.disabled = shuffleWord.disabled = true;
       delete original.dataset.focus;
       delete output.dataset.focus;
       for (const canvas of [original, output]) {
@@ -521,6 +748,7 @@
       delete output.dataset.boxes;
       delete output.dataset.layers;
       delete output.dataset.structure;
+      for (const key of ["word", "labels", "stroke", "mode"]) delete output.dataset[key];
       originalPlaceholder.hidden = outputPlaceholder.hidden = false;
     }
 
@@ -555,28 +783,37 @@
         const count = 1+Math.floor(2*Math.min(100,Math.max(0,amount))/100+.5);
         result = {main:boxes.slice(0,1),medium:boxes.slice(1,1+count),micro:[]};
       }
-      const context = output.getContext("2d");
-      context.drawImage(original,0,0);
-      context.fillStyle = "rgb(0, 80, 255)";
-      function draw(boxes, stroke) {
-        for (const [x1,y1,x2,y2] of boxes) {
-          const line = Math.min(stroke,x2-x1,y2-y1);
-          context.fillRect(x1,y1,x2-x1,line);
-          context.fillRect(x1,y2-line,x2-x1,line);
-          context.fillRect(x1,y1,line,y2-y1);
-          context.fillRect(x2-line,y1,line,y2-y1);
-        }
-      }
-      draw(result.main,Math.min(width,height)>=120?2:1);
-      draw(result.medium,1);
-      draw(result.micro,1);
+      cachedLayers = result;
       output.dataset.focus = original.dataset.focus = JSON.stringify(focus);
       resetFocus.disabled = !focus;
       output.dataset.layers = JSON.stringify(result);
       output.dataset.structure = String(amount);
       output.dataset.boxes = JSON.stringify([...result.main,...result.medium,...result.micro]);
+      renderOverlay();
       original.hidden = output.hidden = false;
       originalPlaceholder.hidden = outputPlaceholder.hidden = true;
+    }
+
+    function updateLabelControls() {
+      customTextField.hidden = labelMode.value !== "Custom Text";
+      shuffleWord.hidden = labelMode.value !== "Emotion Pool";
+      shuffleWord.disabled = !retained || !cachedLayers;
+    }
+
+    // Display controls consume cached pixel-coordinate boxes only. They never
+    // call renderOutput(), ObserverDetector.layers(), or the detector's RNG.
+    function renderOverlay() {
+      updateLabelControls();
+      if (!retained || !cachedLayers) return;
+      const labels = ObserverOverlay.render(output.getContext("2d"), original, cachedLayers, {
+        strokeWidth: strokeWidth.value, labelMode: labelMode.value,
+        word: wordState && wordState.word, customText: customText.value
+      });
+      output.dataset.word = wordState ? wordState.word : "";
+      output.dataset.labels = JSON.stringify(labels);
+      output.dataset.stroke = strokeWidth.value;
+      output.dataset.mode = labelMode.value;
+      downloadPNG.disabled = !!pendingExport;
     }
 
     async function showImage(file) {
@@ -623,6 +860,9 @@
           data = context.getImageData(0,0,analysis.width,analysis.height);
         } catch (error) { console.warn("Using the stable detection fallback.",error); }
         retained = {data,width,height};
+        // A separate image-bound word stream: regular repaint, Focus and
+        // Structure changes must not advance it. No shared Math.random().
+        wordState = ObserverOverlay.createWordState(ObserverOverlay.imageSeed(data));
         // Read the current slider after decoding; pending uploads use its latest value.
         renderOutput();
         message(`${file.name} · ${width} × ${height} · 完成`,"done");
@@ -657,6 +897,53 @@
       structureValue.textContent = structure.value;
       clearTimeout(structureTimer);
       structureTimer = setTimeout(renderOutput,80);
+    });
+    strokeWidth.addEventListener("change", renderOverlay);
+    labelMode.addEventListener("change", renderOverlay);
+    customText.addEventListener("input", () => {
+      // Synchronous local updates preserve a trailing space while typing a
+      // phrase, and preserve the caret when editing in the middle of a word.
+      const sanitize = value => value.replace(/[^A-Za-z '\-]/g, "").toUpperCase().slice(0,32);
+      const caret = sanitize(customText.value.slice(0,customText.selectionStart)).length;
+      customText.value = sanitize(customText.value);
+      customText.setSelectionRange(caret,caret);
+      renderOverlay();
+    });
+    shuffleWord.addEventListener("click", () => {
+      if (!retained || !cachedLayers || labelMode.value !== "Emotion Pool") return;
+      wordState = ObserverOverlay.shuffleWord(wordState);
+      renderOverlay();
+    });
+    downloadPNG.addEventListener("click", () => {
+      if (!retained || !cachedLayers || pendingExport) return;
+      const token = {generation};
+      pendingExport = token;
+      downloadPNG.disabled = true;
+      // Freeze the visible result at click time. Later parameter changes cannot
+      // change this export; uploading a new image cancels its stale callback.
+      const snapshot = document.createElement("canvas");
+      snapshot.width = output.width;
+      snapshot.height = output.height;
+      snapshot.getContext("2d").drawImage(output,0,0);
+      const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
+      const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
+      const filename = `image_observer_html_build_02_3_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      function finish(blob) {
+        snapshot.width = snapshot.height = 1;
+        if (pendingExport !== token || generation !== token.generation) return;
+        pendingExport = null;
+        downloadPNG.disabled = false;
+        if (!blob) { message("PNG 保存失败，请重试。","error"); return; }
+        const url = URL.createObjectURL(blob), link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url),1000);
+      }
+      try { snapshot.toBlob(finish,"image/png"); }
+      catch (_) { finish(null); }
     });
     upload.addEventListener("change",() => showImage(upload.files[0]));
     // Reset just the picker so selecting the same file again triggers analysis.
