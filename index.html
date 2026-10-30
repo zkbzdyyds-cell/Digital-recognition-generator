@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · BUILD 02.3</title>
+  <title>IMAGE OBSERVER · 构建 02.3.1</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
     * { box-sizing: border-box; }
     body { margin: 0; }
     main { max-width: 1320px; margin: 0 auto; padding: 44px 32px 32px; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
-    h1 { font-size: 25px; font-weight: 650; letter-spacing: -0.9px; margin: 0; }
+    h1 { font-size: 25px; font-weight: 650; letter-spacing: -0.9px; margin: 0; text-wrap: balance; }
     .version { color: #69778a; font-weight: 400; font-size: 16px; margin-left: 8px; letter-spacing: 0; }
     .build { color: #0050ff; background: #e9efff; border: 1px solid #d7e3ff; padding: 7px 11px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
     .intro { color: #687586; font-size: 13px; line-height: 1.7; margin: 0 0 28px; }
@@ -20,7 +20,7 @@
     .upload:focus-within { outline: 2px solid #0050ff; outline-offset: 3px; }
     .upload svg { color: #0050ff; }
     .upload strong { font-size: 14px; font-weight: 550; }
-    .upload span { font-size: 12px; color: #7b8796; }
+    .upload span { font-size: 12px; color: #7b8796; text-wrap: balance; text-align: center; }
     .upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
     #status { min-height: 32px; margin: 10px 0 5px; font-size: 12px; color: #687586; line-height: 1.7; overflow-wrap: anywhere; }
     #status[data-state="error"] { color: #b42c34; }
@@ -62,8 +62,8 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · BUILD 02.3</h1>
-      <span class="build">Detection</span>
+      <h1>IMAGE OBSERVER · 构建 02.3.1</h1>
+      <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
     <label class="upload" id="dropZone" for="upload">
@@ -72,30 +72,30 @@
       <span>JPG / PNG · 最长边不超过 1600px · 无需联网</span>
       <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
     </label>
-    <label class="structure" for="structure"><span>Structure</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
+    <label class="structure" for="structure"><span>结构强度</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
     <div class="actions">
-      <button id="resetFocus" type="button" disabled>Reset Focus / 恢复自动</button>
-      <button id="downloadPNG" type="button" disabled>下载 PNG</button>
+      <button id="resetFocus" type="button" disabled>恢复自动焦点</button>
+      <button id="downloadPNG" type="button" disabled>下载 PNG 图片</button>
     </div>
     <div class="controls">
-      <label class="control" for="strokeWidth">Stroke Width
+      <label class="control" for="strokeWidth">线框粗细
         <select id="strokeWidth">
-          <option value="Thin">Thin · 1px</option>
-          <option value="Medium" selected>Medium · 2px</option>
-          <option value="Thick">Thick · 4px</option>
+          <option value="Thin">细 · 1px</option>
+          <option value="Medium" selected>中 · 2px</option>
+          <option value="Thick">粗 · 4px</option>
         </select>
       </label>
-      <label class="control" for="labelMode">Labels
+      <label class="control" for="labelMode">标签文字
         <select id="labelMode">
-          <option value="Off">Off</option>
-          <option value="Emotion Pool" selected>Emotion Pool</option>
-          <option value="Custom Text">Custom Text</option>
+          <option value="Off">关闭</option>
+          <option value="Emotion Pool" selected>情绪词库</option>
+          <option value="Custom Text">自定义文字</option>
         </select>
       </label>
-      <button id="shuffleWord" type="button" disabled>换一个 / Shuffle Word</button>
+      <button id="shuffleWord" type="button" disabled>换一个</button>
     </div>
-    <label class="control" id="customTextField" for="customText" hidden>Custom Text · English · 32 characters max
-      <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="MELANCHOLY">
+    <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
+      <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="输入自定义英文文字">
     </label>
     <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
     <div class="panels">
@@ -103,11 +103,11 @@
         <h2 id="originalLabel">原图</h2>
         <div class="preview">
           <span class="placeholder" id="originalPlaceholder">上传后显示原图</span>
-          <canvas id="original" hidden role="img" aria-label="原图预览，点击指定 Focus"></canvas>
+          <canvas id="original" hidden role="img" aria-label="原图预览，点击指定焦点"></canvas>
         </div>
       </section>
       <section class="panel" aria-labelledby="outputLabel">
-        <h2 id="outputLabel">Detection 输出图</h2>
+        <h2 id="outputLabel">识别输出图</h2>
         <div class="preview">
           <span class="placeholder" id="outputPlaceholder">上传后生成蓝色检测框</span>
           <canvas id="output" hidden role="img" aria-label="蓝色检测框输出图"></canvas>
