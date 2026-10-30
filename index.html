@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.3.1</title>
+  <title>IMAGE OBSERVER · 构建 02.3.2</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
     * { box-sizing: border-box; }
@@ -40,7 +40,7 @@
     .actions #resetFocus { margin-top: 0; }
     button, select, input { font: inherit; }
     button:disabled { opacity: .5; cursor: default; }
-    #downloadPNG, #shuffleWord { padding: 8px 12px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
+    #downloadPNG, #shuffleWord, #deleteSelected, #resetBoxes { padding: 8px 12px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
     #downloadPNG { color: #0050ff; border-color: #8aafff; }
     .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 18px 0 0; font-size: 13px; }
     .control { display: flex; flex-direction: column; gap: 7px; }
@@ -48,6 +48,12 @@
     .control select { min-width: 155px; }
     #customTextField { margin-top: 14px; font-size: 13px; max-width: 460px; }
     #customText { width: 100%; }
+    .edit-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin-top: 16px; font-size: 13px; }
+    .edit-hint { margin: 8px 0 0; color: #687586; font-size: 12px; line-height: 1.7; }
+    #selectionStatus { align-self: center; color: #687586; font-size: 12px; }
+    .output-stage { position: relative; line-height: 0; flex: none; }
+    .output-stage > #output { width: 100%; height: auto; max-width: none; max-height: none; }
+    #editOverlay { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; pointer-events: none; }
     button:focus-visible, select:focus-visible, #customText:focus-visible { outline: 2px solid #0050ff; outline-offset: 3px; }
     [hidden] { display: none !important; }
     @media (max-width: 700px) {
@@ -62,7 +68,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.3.1</h1>
+      <h1>IMAGE OBSERVER · 构建 02.3.2</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -97,6 +103,18 @@
     <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
       <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="输入自定义英文文字">
     </label>
+    <div class="edit-controls">
+      <label class="control" for="editBoxes">编辑方框
+        <select id="editBoxes">
+          <option value="Off" selected>关闭</option>
+          <option value="On">开启</option>
+        </select>
+      </label>
+      <button id="deleteSelected" type="button" disabled>删除选中框</button>
+      <button id="resetBoxes" type="button" disabled>恢复自动框</button>
+      <span id="selectionStatus" role="status" aria-live="polite">开启后可选中方框边线。</span>
+    </div>
+    <p class="edit-hint" id="editHint">更换图片、结构强度或焦点将重新生成识别框。</p>
     <p id="status" role="status" aria-live="polite">请选择一张图片。</p>
     <div class="panels">
       <section class="panel" aria-labelledby="originalLabel">
@@ -110,7 +128,10 @@
         <h2 id="outputLabel">识别输出图</h2>
         <div class="preview">
           <span class="placeholder" id="outputPlaceholder">上传后生成蓝色检测框</span>
-          <canvas id="output" hidden role="img" aria-label="蓝色检测框输出图"></canvas>
+          <div id="outputStage" class="output-stage" hidden>
+            <canvas id="output" hidden role="img" aria-label="蓝色检测框输出图" aria-describedby="editHint selectionStatus"></canvas>
+            <canvas id="editOverlay" hidden aria-hidden="true"></canvas>
+          </div>
         </div>
       </section>
     </div>
@@ -712,6 +733,96 @@
 
   </script>
   <script>
+/* Build 02.3.2: editable copies only; no detection, rendering or random state. */
+(function (root) {
+  'use strict';
+  const TIERS = ['main', 'medium', 'micro'];
+  const validBox = box => Array.isArray(box) && box.length === 4
+    && box.every(Number.isFinite) && box[2] > box[0] && box[3] > box[1];
+  const copyEntry = entry => ({id: entry.id, tier: entry.tier, box: entry.box.slice()});
+  const entries = state => state && Array.isArray(state.entries) ? state.entries : [];
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+
+  function create(automaticLayers) {
+    const automatic = [];
+    for (const tier of TIERS) {
+      const boxes = automaticLayers && Array.isArray(automaticLayers[tier]) ? automaticLayers[tier] : [];
+      boxes.forEach((box, index) => {
+        if (validBox(box)) automatic.push(Object.freeze({id: `${tier}:${index}`, tier,
+          box: Object.freeze(box.slice())}));
+      });
+    }
+    // Keep independent, immutable source geometry even after deleting every box.
+    return {automatic: Object.freeze(automatic), entries: automatic.map(copyEntry)};
+  }
+
+  function layers(state) {
+    const result = {main: [], medium: [], micro: []};
+    for (const entry of entries(state)) {
+      if (entry && result[entry.tier] && validBox(entry.box)) {
+        result[entry.tier].push(entry.box.slice());
+      }
+    }
+    return result;
+  }
+
+  function reset(state) {
+    if (state && Array.isArray(state.automatic)) state.entries = state.automatic.map(copyEntry);
+    return state;
+  }
+
+  function hitTest(state, x, y, scaleX, scaleY, tolerance = 6) {
+    // x/y use image pixels. Scales are displayed CSS pixels per image pixel,
+    // so selection remains equally usable on a scaled or non-square preview.
+    if (![x, y, scaleX, scaleY, tolerance].every(Number.isFinite)
+        || scaleX <= 0 || scaleY <= 0 || tolerance < 0) return [];
+    const hits = [];
+    for (const entry of entries(state)) {
+      if (!validBox(entry.box)) continue;
+      const [x1, y1, x2, y2] = entry.box;
+      const outsideX = Math.max(x1 - x, 0, x - x2) * scaleX;
+      const outsideY = Math.max(y1 - y, 0, y - y2) * scaleY;
+      // Distance to finite segments, not the infinite lines through the edges.
+      const vertical = Math.hypot(Math.min(Math.abs(x - x1), Math.abs(x - x2)) * scaleX, outsideY);
+      const horizontal = Math.hypot(outsideX, Math.min(Math.abs(y - y1), Math.abs(y - y2)) * scaleY);
+      const distance = Math.min(vertical, horizontal);
+      if (distance <= tolerance) hits.push({id: entry.id, tier: entry.tier,
+        box: entry.box.slice(), distance, area: (x2 - x1) * (y2 - y1)});
+    }
+    // Closest border first; smaller rectangles resolve equal-distance overlap.
+    // Stable IDs provide a deterministic final tie and let the UI cycle hits.
+    return hits.sort((a, b) => a.distance - b.distance || a.area - b.area
+      || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
+  function move(state, id, originBox, dx, dy, width, height) {
+    const entry = entries(state).find(item => item.id === id);
+    if (!entry || !validBox(originBox) || ![dx, dy, width, height].every(Number.isFinite)) return false;
+    const boxWidth = originBox[2] - originBox[0], boxHeight = originBox[3] - originBox[1];
+    // An invalid canvas cannot contain this rectangle without resizing it.
+    if (width < boxWidth || height < boxHeight) return false;
+    // Always apply total displacement to the pointer-down snapshot, not to the
+    // previous pointermove result. This avoids accumulating rounding or drift.
+    const x = clamp(originBox[0] + Math.round(dx), 0, width - boxWidth);
+    const y = clamp(originBox[1] + Math.round(dy), 0, height - boxHeight);
+    const box = [x, y, x + boxWidth, y + boxHeight];
+    if (box.every((value, index) => value === entry.box[index])) return false;
+    entry.box = box;
+    return true;
+  }
+
+  function remove(state, id) {
+    const list = entries(state), index = list.findIndex(entry => entry.id === id);
+    if (index < 0) return false;
+    list.splice(index, 1);
+    return true;
+  }
+
+  root.ObserverBoxEditor = Object.freeze({create, layers, reset, hitTest, move, remove});
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
     "use strict";
     const upload = document.getElementById("upload");
     const dropZone = document.getElementById("dropZone");
@@ -729,27 +840,44 @@
     const customTextField = document.getElementById("customTextField");
     const shuffleWord = document.getElementById("shuffleWord");
     const downloadPNG = document.getElementById("downloadPNG");
-    let generation = 0, retained = null, focus = null, structureTimer;
+    const editBoxes = document.getElementById("editBoxes");
+    const deleteSelected = document.getElementById("deleteSelected");
+    const resetBoxes = document.getElementById("resetBoxes");
+    const selectionStatus = document.getElementById("selectionStatus");
+    const outputStage = document.getElementById("outputStage");
+    const editOverlay = document.getElementById("editOverlay");
+    let generation = 0, retained = null, focus = null, structureTimer = null;
     let cachedLayers = null, wordState = null, pendingExport = null;
+    // Automatic boxes remain untouched. Only editorState.entries can be moved
+    // or deleted; its immutable snapshot restores this exact detection layout.
+    let editorState = null, selectedBoxId = null, editorRevision = 0;
+    let activeDrag = null, selectionCycle = null;
 
     function clearImages() {
+      cancelBoxDrag();
       clearTimeout(structureTimer);
+      structureTimer = null;
       retained = null;
       focus = null;
       cachedLayers = wordState = pendingExport = null;
+      editorState = selectedBoxId = selectionCycle = null;
+      editorRevision++;
+      outputStage.hidden = true;
       resetFocus.disabled = true;
       downloadPNG.disabled = shuffleWord.disabled = true;
       delete original.dataset.focus;
       delete output.dataset.focus;
-      for (const canvas of [original, output]) {
+      for (const canvas of [original, output, editOverlay]) {
         canvas.hidden = true;
         canvas.width = canvas.height = 1;
       }
       delete output.dataset.boxes;
       delete output.dataset.layers;
       delete output.dataset.structure;
+      delete output.dataset.autoLayers;
       for (const key of ["word", "labels", "stroke", "mode"]) delete output.dataset[key];
       originalPlaceholder.hidden = outputPlaceholder.hidden = false;
+      updateEditingControls();
     }
 
     function message(text, state) {
@@ -759,6 +887,9 @@
 
     function renderOutput() {
       if (!retained) return;
+      cancelBoxDrag();
+      clearTimeout(structureTimer);
+      structureTimer = null;
       const {data, width, height} = retained, amount = Number(structure.value);
       let result;
       try {
@@ -784,13 +915,19 @@
         result = {main:boxes.slice(0,1),medium:boxes.slice(1,1+count),micro:[]};
       }
       cachedLayers = result;
+      editorState = ObserverBoxEditor.create(result);
+      editorRevision++;
+      selectedBoxId = selectionCycle = null;
       output.dataset.focus = original.dataset.focus = JSON.stringify(focus);
       resetFocus.disabled = !focus;
-      output.dataset.layers = JSON.stringify(result);
+      output.dataset.autoLayers = JSON.stringify(result);
       output.dataset.structure = String(amount);
-      output.dataset.boxes = JSON.stringify([...result.main,...result.medium,...result.micro]);
+      // Keep the stage as tight as the real canvas, including portrait images
+      // constrained by 65vh. The absolute guide must never cover letterboxing.
+      outputStage.style.width = `min(100%, ${width}px, calc(65vh * ${width / height}))`;
       renderOverlay();
       original.hidden = output.hidden = false;
+      outputStage.hidden = false;
       originalPlaceholder.hidden = outputPlaceholder.hidden = true;
     }
 
@@ -805,7 +942,9 @@
     function renderOverlay() {
       updateLabelControls();
       if (!retained || !cachedLayers) return;
-      const labels = ObserverOverlay.render(output.getContext("2d"), original, cachedLayers, {
+      // Empty edited arrays are valid: deleting every box leaves the base image.
+      const layers = editorState ? ObserverBoxEditor.layers(editorState) : cachedLayers;
+      const labels = ObserverOverlay.render(output.getContext("2d"), original, layers, {
         strokeWidth: strokeWidth.value, labelMode: labelMode.value,
         word: wordState && wordState.word, customText: customText.value
       });
@@ -813,7 +952,106 @@
       output.dataset.labels = JSON.stringify(labels);
       output.dataset.stroke = strokeWidth.value;
       output.dataset.mode = labelMode.value;
+      output.dataset.layers = JSON.stringify(layers);
+      output.dataset.boxes = JSON.stringify([...layers.main,...layers.medium,...layers.micro]);
       downloadPNG.disabled = !!pendingExport;
+      updateEditingControls();
+      drawEditGuide();
+    }
+
+    function editingEnabled() {
+      return editBoxes.value === "On" && !!retained && !!editorState;
+    }
+
+    function selectedEntry() {
+      return editorState && editorState.entries.find(entry => entry.id === selectedBoxId);
+    }
+
+    function updateEditingControls() {
+      const enabled = editingEnabled(), selected = selectedEntry();
+      deleteSelected.disabled = !enabled || !selected;
+      resetBoxes.disabled = !retained || !editorState;
+      editOverlay.hidden = !enabled;
+      output.tabIndex = enabled ? 0 : -1;
+      output.style.touchAction = enabled ? "none" : "";
+      if (!enabled) output.style.cursor = "";
+      output.dataset.edit = editBoxes.value;
+      output.dataset.selectedBox = enabled && selected ? selected.id : "";
+      const names = {main: "主框", medium: "中框", micro: "微型框"};
+      selectionStatus.textContent = !enabled ? "开启后可选中方框边线。" : selected
+        ? `已选中：${names[selected.tier]} ${Number(selected.id.split(":")[1]) + 1}`
+        : editorState.entries.length ? "未选中方框；重叠边线可再次点击切换。" : "当前没有方框，可恢复自动框。";
+    }
+
+    function drawEditGuide() {
+      if (editOverlay.width !== output.width || editOverlay.height !== output.height) {
+        editOverlay.width = output.width;
+        editOverlay.height = output.height;
+      }
+      const context = editOverlay.getContext("2d");
+      context.clearRect(0,0,editOverlay.width,editOverlay.height);
+      const entry = selectedEntry(), bounds = output.getBoundingClientRect();
+      if (!editingEnabled() || !entry || !bounds.width) return;
+      const scale = bounds.width / output.width;
+      const [x1,y1,x2,y2] = entry.box;
+      context.save();
+      // This canvas is UI only. PNG export always snapshots the clean #output.
+      context.strokeStyle = "#fff";
+      context.lineWidth = 3 / scale;
+      context.strokeRect(x1,y1,x2-x1,y2-y1);
+      context.strokeStyle = "rgb(0, 80, 255)";
+      context.lineWidth = 1.5 / scale;
+      context.setLineDash([5 / scale,3 / scale]);
+      context.strokeRect(x1,y1,x2-x1,y2-y1);
+      context.restore();
+    }
+
+    function outputPoint(event) {
+      const bounds = output.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return null;
+      return {x: (event.clientX - bounds.left) * output.width / bounds.width,
+              y: (event.clientY - bounds.top) * output.height / bounds.height,
+              sx: bounds.width / output.width, sy: bounds.height / output.height};
+    }
+
+    function boxHits(event) {
+      const point = outputPoint(event);
+      return point ? ObserverBoxEditor.hitTest(editorState,point.x,point.y,point.sx,point.sy,6) : [];
+    }
+
+    function releaseBoxPointer(pointerId) {
+      if (output.hasPointerCapture(pointerId)) output.releasePointerCapture(pointerId);
+    }
+
+    function cancelBoxDrag() {
+      const drag = activeDrag;
+      activeDrag = null;
+      if (!drag) return;
+      selectionCycle = null;
+      if (drag.state === editorState && drag.revision === editorRevision) {
+        ObserverBoxEditor.move(editorState,drag.id,drag.origin,0,0,output.width,output.height);
+      }
+      releaseBoxPointer(drag.pointerId);
+      output.style.cursor = "";
+    }
+
+    function moveBoxPointer(event) {
+      const drag = activeDrag, point = outputPoint(event);
+      if (!drag || !point || event.pointerId !== drag.pointerId ||
+          drag.state !== editorState || drag.revision !== editorRevision) return;
+      if (!drag.moved && Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY) < 2) return;
+      drag.moved = true;
+      ObserverBoxEditor.move(editorState,drag.id,drag.origin,point.x-drag.x,point.y-drag.y,output.width,output.height);
+      renderOverlay();
+    }
+
+    function deleteSelectedBox() {
+      if (!editingEnabled() || !selectedEntry()) return;
+      cancelBoxDrag();
+      ObserverBoxEditor.remove(editorState,selectedBoxId);
+      editorRevision++;
+      selectedBoxId = selectionCycle = null;
+      renderOverlay();
     }
 
     async function showImage(file) {
@@ -896,8 +1134,122 @@
       structureValue.value = structure.value;
       structureValue.textContent = structure.value;
       clearTimeout(structureTimer);
-      structureTimer = setTimeout(renderOutput,80);
+      structureTimer = setTimeout(() => { structureTimer = null; renderOutput(); },80);
     });
+    editBoxes.addEventListener("change", () => {
+      cancelBoxDrag();
+      selectedBoxId = selectionCycle = null;
+      updateEditingControls();
+      renderOverlay();
+      drawEditGuide();
+    });
+    deleteSelected.addEventListener("click", deleteSelectedBox);
+    resetBoxes.addEventListener("click", () => {
+      if (!retained || !editorState) return;
+      // A just-changed slider may still be waiting for its 80ms debounce.
+      // Flush that necessary update rather than restoring an outdated layout.
+      if (structureTimer !== null) { renderOutput(); return; }
+      cancelBoxDrag();
+      ObserverBoxEditor.reset(editorState);
+      editorRevision++;
+      selectedBoxId = selectionCycle = null;
+      renderOverlay();
+    });
+    output.addEventListener("pointerdown", event => {
+      if (!editingEnabled() || event.button !== 0 || event.isPrimary === false || activeDrag) return;
+      event.preventDefault();
+      output.focus({preventScroll: true});
+      const point = outputPoint(event), hits = boxHits(event);
+      if (!point || !hits.length) {
+        selectedBoxId = selectionCycle = null;
+        updateEditingControls();
+        drawEditGuide();
+        return;
+      }
+      const ids = hits.map(hit => hit.id).join("|"), previous = selectionCycle;
+      const repeat = previous && previous.ids === ids && hits[previous.index].id === selectedBoxId
+        && Math.hypot(event.clientX-previous.x,event.clientY-previous.y) < 4;
+      // A second press may be the start of a drag. Keep the selected box until
+      // pointerup confirms a click, so selecting then dragging cannot switch it.
+      const index = repeat ? previous.index : 0;
+      const hit = hits[index];
+      selectedBoxId = hit.id;
+      selectionCycle = {ids, index, x: event.clientX, y: event.clientY};
+      activeDrag = {pointerId: event.pointerId, id: hit.id, origin: hit.box.slice(),
+        x: point.x, y: point.y, clientX: event.clientX, clientY: event.clientY,
+        state: editorState, revision: editorRevision, moved: false,
+        repeatClick: !!repeat, hitIds: hits.map(candidate => candidate.id), hitIndex: index};
+      output.setPointerCapture(event.pointerId);
+      output.style.cursor = "grabbing";
+      updateEditingControls();
+      drawEditGuide();
+    });
+    output.addEventListener("pointermove", event => {
+      if (!editingEnabled()) return;
+      if (activeDrag) {
+        if (event.pointerId !== activeDrag.pointerId) return;
+        if (event.pointerType === "mouse" && !(event.buttons & 1)) {
+          cancelBoxDrag();
+          renderOverlay();
+          return;
+        }
+        event.preventDefault();
+        moveBoxPointer(event);
+      } else output.style.cursor = boxHits(event).length ? "move" : "default";
+    });
+    output.addEventListener("pointerup", event => {
+      if (!activeDrag || event.pointerId !== activeDrag.pointerId) return;
+      moveBoxPointer(event);
+      const finished = activeDrag;
+      activeDrag = null;
+      releaseBoxPointer(event.pointerId);
+      if (finished.moved) selectionCycle = null;
+      else if (finished.repeatClick && finished.hitIds.length > 1) {
+        const next = (finished.hitIndex + 1) % finished.hitIds.length;
+        selectedBoxId = finished.hitIds[next];
+        selectionCycle.index = next;
+        updateEditingControls();
+      }
+      output.style.cursor = boxHits(event).length ? "move" : "default";
+      drawEditGuide();
+    });
+    output.addEventListener("pointercancel", event => {
+      if (activeDrag && event.pointerId === activeDrag.pointerId) {
+        cancelBoxDrag();
+        renderOverlay();
+      }
+    });
+    output.addEventListener("lostpointercapture", () => {
+      if (activeDrag && !output.hasPointerCapture(activeDrag.pointerId)) {
+        cancelBoxDrag();
+        renderOverlay();
+      }
+    });
+    output.addEventListener("pointerleave", () => {
+      if (!activeDrag) output.style.cursor = "";
+    });
+    // Key handling stays on the focused canvas, never on document/input fields.
+    output.addEventListener("keydown", event => {
+      if (event.key === "Delete" && !event.isComposing && event.target === output) {
+        if (editingEnabled() && selectedEntry()) { event.preventDefault(); deleteSelectedBox(); }
+      } else if (event.key === "Escape" && editingEnabled()) {
+        cancelBoxDrag();
+        selectedBoxId = selectionCycle = null;
+        renderOverlay();
+      }
+    });
+    let guideSize = null;
+    const guideResize = new ResizeObserver(() => {
+      const bounds = output.getBoundingClientRect();
+      if (activeDrag && guideSize && guideSize.width > 0 &&
+          (Math.abs(guideSize.width-bounds.width) > .5 || Math.abs(guideSize.height-bounds.height) > .5)) {
+        cancelBoxDrag();
+        renderOverlay();
+      }
+      guideSize = {width: bounds.width, height: bounds.height};
+      drawEditGuide();
+    });
+    guideResize.observe(output);
     strokeWidth.addEventListener("change", renderOverlay);
     labelMode.addEventListener("change", renderOverlay);
     customText.addEventListener("input", () => {
@@ -960,6 +1312,7 @@
       dropZone.classList.remove("dragging");
       showImage(event.dataTransfer.files[0]);
     });
+    updateEditingControls();
   </script>
 </body>
 </html>

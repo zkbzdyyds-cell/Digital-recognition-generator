@@ -25,7 +25,7 @@
 
 ## 当前开发顺序
 
-- Build 02.3：已完成；Build 02.3.1：仅界面中文化。
-- Build 02.3.2：手动拖框、选中删除、恢复自动位置，须用户另行启动。
-- Build 02.4：VECTOR / INK BLEED；Build 03：Original / Mono / Grain / Blur；之后再评估 Fragment。
-- 单纯中文化不改 Detection、框后处理、密度、Focus、Seed、缓存、30 词库、Shuffle、线宽或文字绘制、PNG 导出及 1600px 比例规则。
+- Build 02.3、02.3.1：已完成；当前 Build 02.3.2：整框移动、单框删除、恢复自动框。
+- Build 02.4：蓝／红／绿／黄四色及 VECTOR / INK BLEED；Build 03：Original / Mono / Grain / Blur；之后再评估 Fragment。
+- 自动检测缓存与手动编辑副本分开，拖删只改编辑状态；样式和词语变化保留编辑，新图、结构或焦点变化重新生成。
+- 编辑辅助标记不得进入 PNG；保留原有 Detection、比例、Seed 和标签规则，不提前开发后续 Build。
