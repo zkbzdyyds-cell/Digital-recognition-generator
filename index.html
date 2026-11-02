@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.5</title>
+  <title>IMAGE OBSERVER · 构建 02.6</title>
   <style>
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2") format("woff2"); font-weight: 300; font-display: swap; }
     @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
@@ -71,7 +71,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.5</h1>
+      <h1>IMAGE OBSERVER · 构建 02.6</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -118,6 +118,11 @@
       </label>
       <button id="shuffleWord" type="button" disabled>换一个</button>
     </div>
+    <div class="controls">
+      <label class="control" for="baseFilter">底图滤镜<select id="baseFilter"><option value="Original">原图</option><option value="XRay">单色 X 光</option></select></label>
+      <label class="control" id="xrayColorControl" for="xrayColor" hidden>X 光颜色<select id="xrayColor"><option value="Blue">蓝色</option><option value="Red">红色</option><option value="Yellow">黄色</option><option value="Green">绿色</option><option value="Black">黑色</option></select></label>
+    </div>
+    <label class="structure" for="vignette"><span>暗角</span><input id="vignette" type="range" min="-100" max="100" step="1" value="0"><output id="vignetteValue" for="vignette">0</output></label>
     <label class="structure" id="distortionControl" for="distortionStrength" hidden><span>失真强度</span><input id="distortionStrength" type="range" min="0" max="100" step="1" value="45"><output id="distortionValue" for="distortionStrength">45</output></label>
     <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
       <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="输入自定义英文文字">
@@ -125,8 +130,8 @@
     <div class="edit-controls">
       <label class="control" for="editBoxes">编辑方框
         <select id="editBoxes">
-          <option value="Off" selected>关闭</option>
-          <option value="On">开启</option>
+          <option value="Off">关闭</option>
+          <option value="On" selected>开启</option>
         </select>
       </label>
       <button id="deleteSelected" type="button" disabled>删除选中框</button>
@@ -568,6 +573,82 @@
   root.ObserverDetector = { detect, fit, fallback, layers };
 })(typeof window !== 'undefined' ? window : globalThis);
 
+  </script>
+  <script>
+/* Image Base: original -> monochrome mapping -> vignette. Never used by Detection. */
+window.ObserverImageBase = (() => {
+  const palettes = {
+    Blue: [[2,5,25],[4,35,113],[0,146,199],[204,255,255]],
+    Red: [[22,2,6],[109,10,27],[223,64,64],[255,229,217]],
+    Yellow: [[20,14,1],[100,68,2],[221,178,20],[255,253,206]],
+    Green: [[1,18,13],[0,83,53],[11,177,116],[211,255,231]],
+    Black: [[3,3,3],[53,53,53],[151,151,151],[248,248,248]]
+  };
+  const filtered = document.createElement('canvas'), result = document.createElement('canvas');
+  let imageKey = null, tones = null, filterKey = null, resultKey = null;
+  function render(source, revision, mode, color, vignette) {
+    const w = source.width, h = source.height;
+    const key = `${revision}:${w}:${h}`;
+    if (imageKey !== key) {
+      imageKey = key; tones = null; filterKey = resultKey = null;
+      filtered.width = result.width = w; filtered.height = result.height = h;
+    }
+    const amount = Math.max(-100, Math.min(100, Number(vignette) || 0));
+    if (mode !== 'XRay' && !amount) return source;
+    let base = source;
+    if (mode === 'XRay') {
+      if (!tones) {
+        // One original-pixel analysis per upload, independent of detection.
+        const pixels = source.getContext('2d').getImageData(0,0,w,h).data;
+        const smooth = document.createElement('canvas'); smooth.width = w; smooth.height = h;
+        const ctx = smooth.getContext('2d', {willReadFrequently:true});
+        ctx.filter = 'blur(16px)'; ctx.drawImage(source,0,0); ctx.filter = 'none';
+        const local = ctx.getImageData(0,0,w,h).data;
+        tones = new Uint8Array(w*h);
+        for (let i=0,j=0;i<pixels.length;i+=4,j++) {
+          const gray = .2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
+          // Alpha-normalize the blur near image edges to avoid artificial halos.
+          const mean = local[i+3] ? (.2126*local[i]+.7152*local[i+1]+.0722*local[i+2]) : gray;
+          const mapped = Math.max(0,Math.min(1, ((gray-128)*1.12+128+.42*(gray-mean))/255));
+          tones[j] = Math.round(255*Math.pow(mapped,.88));
+        }
+        smooth.width = smooth.height = 1;
+      }
+      const chosen = palettes[color] ? color : 'Blue';
+      if (filterKey !== chosen) {
+        const ctx = filtered.getContext('2d'), data = ctx.createImageData(w,h), stops = palettes[chosen];
+        const lut = new Uint8Array(256*3);
+        for (let n=0;n<256;n++) {
+          const t=n/255*3, band=Math.min(2,Math.floor(t)), f=t-band;
+          for(let c=0;c<3;c++) lut[n*3+c]=Math.round(stops[band][c]*(1-f)+stops[band+1][c]*f);
+        }
+        for(let j=0,i=0;j<tones.length;j++,i+=4) {
+          const t=tones[j]*3;
+          data.data[i]=lut[t]; data.data[i+1]=lut[t+1]; data.data[i+2]=lut[t+2]; data.data[i+3]=255;
+        }
+        ctx.putImageData(data,0,0); filterKey=chosen;
+      }
+      base=filtered;
+    }
+    const nextKey=`${mode}:${filterKey}:${amount}`;
+    if(resultKey!==nextKey) {
+      const ctx=result.getContext('2d');ctx.clearRect(0,0,w,h);ctx.drawImage(base,0,0);
+      if(amount) {
+        ctx.save(); ctx.translate(w/2,h/2); ctx.scale(w*.70,h*.70);
+        const gradient=ctx.createRadialGradient(0,0,.25,0,0,1);
+        const rgb=amount>0?'0,0,0':'255,255,255', a=Math.abs(amount)/100;
+        gradient.addColorStop(0,`rgba(${rgb},0)`);
+        gradient.addColorStop(.5,`rgba(${rgb},${a*.12})`);
+        gradient.addColorStop(.75,`rgba(${rgb},${a*.45})`);
+        gradient.addColorStop(1,`rgba(${rgb},${a*.92})`);
+        ctx.fillStyle=gradient;ctx.fillRect(-1,-1,2,2);ctx.restore();
+      }
+      resultKey=nextKey;
+    }
+    return result;
+  }
+  return Object.freeze({render});
+})();
   </script>
   <script>
 /* Build 02.5 Overlay: cached geometry, independent words and seeded local styles. */
@@ -1043,6 +1124,11 @@
     const labelMode = document.getElementById("labelMode");
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
+    const baseFilter = document.getElementById("baseFilter");
+    const xrayColor = document.getElementById("xrayColor");
+    const xrayColorControl = document.getElementById("xrayColorControl");
+    const vignette = document.getElementById("vignette");
+    const vignetteValue = document.getElementById("vignetteValue");
     const distortionControl = document.getElementById("distortionControl");
     const distortionStrength = document.getElementById("distortionStrength");
     const distortionValue = document.getElementById("distortionValue");
@@ -1158,10 +1244,12 @@
     // call renderOutput(), ObserverDetector.layers(), or the detector's RNG.
     function renderOverlay() {
       updateLabelControls();
+      xrayColorControl.hidden = baseFilter.value !== "XRay";
       if (!retained || !cachedLayers) return;
       // Empty edited arrays are valid: deleting every box leaves the base image.
       const layers = editorState ? ObserverBoxEditor.layers(editorState) : cachedLayers;
-      const labels = ObserverOverlay.render(output.getContext("2d"), original, layers, {
+      const base = ObserverImageBase.render(original, generation, baseFilter.value, xrayColor.value, vignette.value);
+      const labels = ObserverOverlay.render(output.getContext("2d"), base, layers, {
         strokeWidth: strokeWidth.value, labelMode: labelMode.value,
         color: overlayColor.value, style: overlayStyle.value, seed: 0,
         distortion: distortionStrength.value,
@@ -1477,6 +1565,14 @@
     strokeWidth.addEventListener("change", renderOverlay);
     overlayColor.addEventListener("change", renderOverlay);
     overlayStyle.addEventListener("change", renderOverlay);
+    baseFilter.addEventListener("change", renderOverlay);
+    xrayColor.addEventListener("change", renderOverlay);
+    let baseFrame = null;
+    vignette.addEventListener("input", () => {
+      vignetteValue.value = vignette.value;
+      if (baseFrame !== null) return;
+      baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
+    });
     let distortionFrame = null;
     distortionStrength.addEventListener("input", () => {
       distortionValue.value = distortionStrength.value;
@@ -1504,6 +1600,9 @@
     });
     downloadPNG.addEventListener("click", () => {
       if (!retained || !cachedLayers || pendingExport) return;
+      if (baseFrame !== null) {
+        cancelAnimationFrame(baseFrame); baseFrame = null; renderOverlay();
+      }
       if (distortionFrame !== null) {
         cancelAnimationFrame(distortionFrame);
         distortionFrame = null;
@@ -1521,7 +1620,7 @@
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_5_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_6_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
