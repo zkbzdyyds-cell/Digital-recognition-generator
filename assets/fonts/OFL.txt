@@ -94,4 +94,5 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 Image Observer distributes English WOFF2 subsets of the user-provided
 InterDisplay-Light.ttf and InterDisplay-Medium.ttf, under this same OFL.
 Subset: printable ASCII plus middle dot, multiplication sign, dashes,
-quotation marks and ellipsis. Original TTF files are not distributed.
+quotation marks, ellipsis and à/é/ê for the fixed French foreground text.
+Original TTF files are not distributed.

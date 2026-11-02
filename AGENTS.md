@@ -25,8 +25,8 @@
 
 ## 当前开发顺序
 
-- Build 02.3、02.3.1、02.3.2、02.4：已完成；Build 02.5：已完成；Build 02.6 已完成；Build 02.6.1 已完成；当前 Build 02.6.2：三层底图效果、三类电子扫描和彩色泛光。
-- Build 02.7 待开发：前景文字奔逸与图像碎片奔逸基础版。本轮不实现。
+- Build 02.3、02.3.1、02.3.2、02.4：已完成；Build 02.5：已完成；Build 02.6 已完成；Build 02.6.1 已完成；Build 02.6.2 已完成；当前 Build 02.7：图像碎片奔逸与固定法语前景文字奔逸。
+- 本轮停止在 Build 02.7，完成后等待验收。
 - 预留法语前景文字：Nous sommes seuls, sans excuses. C'est ce que j'exprimerai en disant que l'homme est condamné à être libre.
 - 自动检测缓存与手动编辑副本分开，拖删只改编辑状态；样式和词语变化保留编辑，新图、结构或焦点变化重新生成。
 - 编辑辅助标记不得进入 PNG；保留原有 Detection、比例、Seed 和标签规则，不提前开发后续 Build。
