@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.7</title>
+  <title>IMAGE OBSERVER · 构建 02.7.1</title>
   <style>
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2?v=027") format("woff2"); font-weight: 300; font-display: swap; }
     @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
@@ -80,7 +80,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.7</h1>
+      <h1>IMAGE OBSERVER · 构建 02.7.1</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -137,6 +137,7 @@
       <label class="structure" for="xrayLightness"><span>明度</span><input id="xrayLightness" type="range" min="0" max="100" value="65"><output>65</output></label>
       <label class="invert-control"><input id="xrayInvert" type="checkbox">反色</label>
     </div>
+    <label class="structure" for="baseContrast"><span>对比度</span><input id="baseContrast" type="range" min="-100" max="100" value="0"><output>0</output></label>
     <div class="effect-layers">
       <div class="effect-layer"><label class="control" for="effect1">效果层 1<select id="effect1"><option value="None">无</option><option value="Noise" selected>彩色噪点</option><option value="CRT">复古电视机竖纹</option><option value="Glitch">电子扫描 A｜条带错位</option><option value="Wave">电子扫描 B｜波纹湍流</option><option value="Streak">电子扫描 C｜纵向拉丝</option><option value="Glow">彩色泛光</option></select></label>
         <div id="effectParams1"><label class="structure" for="strength1"><span id="strengthLabel1">强度</span><input id="strength1" type="range" min="0" max="100" value="20"><output>20</output></label>
@@ -163,9 +164,9 @@
 <label class="structure" for="fragmentCount"><span>碎片数量</span><input id="fragmentCount" type="range" min="0" max="100" value="35"><output>35</output></label>
 <label class="structure" for="fragmentDisplacement"><span>位移强度</span><input id="fragmentDisplacement" type="range" min="0" max="100" value="45"><output>45</output></label>
 <label class="structure" for="fragmentScale"><span>缩放波动</span><input id="fragmentScale" type="range" min="0" max="100" value="30"><output>30</output></label>
-</div></section>
+<p class="edit-hint">修改碎片数量或变换参数会重新生成碎片；识别框编辑不影响碎片。</p></div></section>
       <section><label class="control" for="foregroundTextOn">前景文字奔逸<select id="foregroundTextOn"><option value="Off" selected>关</option><option value="On">开</option></select></label><div id="foregroundTextParams" hidden>
-<label class="control" for="foregroundTextStyle">文字奔逸样式<select id="foregroundTextStyle"><option value="Float">文字奔逸 A｜轻量漂浮</option><option value="Stretch">文字奔逸 B｜放大拉伸</option></select></label>
+<label class="control" for="foregroundTextStyle">文字奔逸样式<select id="foregroundTextStyle"><option value="Stretch" selected>条带横排</option><option value="Float">小型散置</option></select></label>
 <label id="textLinksControl"><input id="textLinks" type="checkbox">文字连线</label>
 <label class="structure" id="textStrengthControl" for="foregroundTextStrength" hidden><span>强度</span><input id="foregroundTextStrength" type="range" min="0" max="100" value="50"><output>50</output></label>
 <label class="structure" for="foregroundTextCount"><span>文字数量</span><input id="foregroundTextCount" type="range" min="0" max="100" value="35"><output>35</output></label>
@@ -183,6 +184,8 @@
           <option value="On" selected>开启</option>
         </select>
       </label>
+      <label class="control" for="editTarget">编辑对象<select id="editTarget"><option value="boxes">识别框</option><option value="fragments">图像碎片</option></select></label>
+      <button id="resetFragments" type="button" disabled>恢复初始碎片</button>
       <button id="deleteSelected" type="button" disabled>删除选中框</button>
       <button id="resetBoxes" type="button" disabled>恢复自动框</button>
       <span id="selectionStatus" role="status" aria-live="polite">开启后可选中方框边线。</span>
@@ -638,7 +641,8 @@ window.ObserverImageBase = (() => {
     };
     return [channel(0),channel(8),channel(4)];
   }
-  const filtered = document.createElement('canvas'), result = document.createElement('canvas');
+  const filtered = document.createElement('canvas'), contrasted = document.createElement('canvas'), result = document.createElement('canvas');
+  let contrastKey=null;
   const layerCaches = Array.from({length:3},()=>({canvas:document.createElement('canvas'),key:null}));
   const glowSource=document.createElement('canvas'), glowBlur=document.createElement('canvas'), streakStrip=document.createElement('canvas');
   let imageKey = null, tones = null, filterKey = null, resultKey = null;
@@ -651,15 +655,19 @@ window.ObserverImageBase = (() => {
     const image=sc.getImageData(0,0,w,h),a=image.data,lum=new Float32Array(w*h);
     for(let i=0;i<lum.length;i++)lum[i]=(.2126*a[i*4]+.7152*a[i*4+1]+.0722*a[i*4+2])/255;
     const rgb=hsl(((hue%360)+360)%360,saturation/100,lightness/100);
+    const edges=new Float32Array(lum.length),gx=new Float32Array(lum.length),gy=new Float32Array(lum.length);
+    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++) {
+      const i=y*w+x;gx[i]=lum[i+1]-lum[i-1];gy[i]=lum[i+w]-lum[i-w];edges[i]=Math.hypot(gx[i],gy[i]);
+    }
     for(let i=0;i<lum.length;i++) {
-      const x=i%w,y=Math.floor(i/w);
-      const edge=Math.hypot(lum[y*w+Math.min(w-1,x+1)]-lum[y*w+Math.max(0,x-1)],lum[Math.min(h-1,y+1)*w+x]-lum[Math.max(0,y-1)*w+x]);
-      const alpha=Math.min(.95,Math.max(0,edge-.025)*5.5);
+      const step=Math.abs(gx[i])>Math.abs(gy[i])?1:w;
+      const ridge=edges[i]>.14&&edges[i]>=edges[Math.max(0,i-step)]&&edges[i]>=edges[Math.min(edges.length-1,i+step)];
+      const alpha=ridge?Math.min(1,(edges[i]-.12)*5):0;
       a[i*4]=rgb[0];a[i*4+1]=rgb[1];a[i*4+2]=rgb[2];a[i*4+3]=Math.round(alpha*255);
     }
     sc.putImageData(image,0,0);
-    const bc=glowBlur.getContext('2d');bc.filter='blur(4px)';bc.drawImage(glowSource,0,0);bc.filter='none';
-    ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=.95*power;
+    const bc=glowBlur.getContext('2d');bc.filter=`blur(${.5+1.8*power}px)`;bc.drawImage(glowSource,0,0);bc.filter='none';
+    ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=.7*power;
     ctx.drawImage(glowBlur,0,0,base.width,base.height);
     ctx.globalCompositeOperation='source-over';ctx.globalAlpha=.78*power;
     ctx.drawImage(glowSource,0,0,base.width,base.height);ctx.restore();
@@ -747,12 +755,12 @@ window.ObserverImageBase = (() => {
     const w = source.width, h = source.height;
     const key = `${revision}:${w}:${h}`;
     if (imageKey !== key) {
-      imageKey = key; tones = null; filterKey = resultKey = null;
+      imageKey = key; tones = null; filterKey = resultKey = contrastKey = null;
       for(const cache of layerCaches) {cache.key=null;cache.canvas.width=w;cache.canvas.height=h;}
-      filtered.width = result.width = w; filtered.height = result.height = h;
+      filtered.width = contrasted.width = result.width = w; filtered.height = contrasted.height = result.height = h;
     }
     const amount = Math.max(-100, Math.min(100, Number(vignette) || 0));
-    const {hue=210, saturation=80, lightness=65, invert=false, layers=[]} = settings || {};
+    const {hue=210, saturation=80, lightness=65, invert=false, contrast=0, layers=[]} = settings || {};
 
     let base = source;
     if (mode === 'XRay') {
@@ -793,6 +801,14 @@ window.ObserverImageBase = (() => {
       base=filtered;
     }
     let stamp=key+':'+(mode==='XRay'?filterKey:'Original');
+    if(Number(contrast)) {
+      const ck=JSON.stringify([stamp,Number(contrast)]);
+      if(contrastKey!==ck) {
+        const ctx=contrasted.getContext('2d');ctx.clearRect(0,0,w,h);
+        ctx.filter=`contrast(${Math.pow(2,Number(contrast)/65)})`;ctx.drawImage(base,0,0);ctx.filter='none';contrastKey=ck;
+      }
+      base=contrasted;stamp=ck;
+    }
     for(let slot=0;slot<3;slot++) {
       const spec=layers[slot]||{}, effect=spec.effect||'None';
       if(effect==='None'||Number(spec.strength)<=0||!spec.strength) continue;
@@ -892,30 +908,32 @@ window.ObserverForeground = (() => {
       const dw=Math.min(width*.7,sw*scale*stretch),dh=Math.min(height*.7,sh*scale/stretch);
       // Keep fragment centers in the image; rotated edges may naturally clip.
       x=Math.max(dw/2,Math.min(width-dw/2,x));y=Math.max(dh/2,Math.min(height-dh/2,y));
-      return {source:[sx,sy,sw,sh],position:[x,y],size:[dw,dh],angle};
+      return {source:[sx,sy,sw,sh],position:[x,y],size:[dw,dh],angle:0};
     });
   }
+  const heightSafe=font=>Math.max(16,parseInt(font.split(' ')[1],10)||32);
   function textPlan(width,height,settings) {
     if(!settings.on)return [];
     const drift=Number(settings.displacement)/100,seed=settings.layout||0;
     const large=settings.style==='Stretch',power=Number(settings.strength??50)/100;
     const size=large?Math.min(width,height)*(.09+.13*power):Math.max(12,Math.min(26,Math.min(width,height)*.025));
     return Array.from({length:limit(settings.count,40)},(_,i)=>{
-      const r=c=>random(i,c,seed),column=i%3,row=Math.floor(i/3)%8;
-      const x=(width*(.06+column*.29))*(1-drift)+r(0)*width*drift;
-      const y=(height*(.12+row*.10))*(1-drift)+r(1)*height*drift;
-      return {text:phrases[i%phrases.length],position:[x,y],angle:(r(2)*2-1)*.18*drift,
+      const r=c=>random(i,c,seed);
+      const side=i%2===0,top=i%7===0;
+      const x=width*(top?(.05+r(0)*.45):side?(.015+r(0)*.10):(.68+r(0)*.20));
+      const y=height*(top?(.03+r(1)*.14):(.10+r(1)*.83));
+      return {text:phrases[i%phrases.length],position:[x+(r(9)-.5)*width*.08*drift,y+(r(10)-.5)*height*.08*drift],angle:0,
         font:`300 ${Math.round(size*(.85+.35*r(3)))}px "Observer Inter Light", sans-serif`,
         echo:r(4)<.28,clip:r(5)<.25,width:width*(.18+.35*r(6)),
-        large,stretch:large?[1.2+(2+3*r(7))*power,.85-.65*power]:[1,1],blur:large?.3+1.3*power:0};
+        large,stretch:large?[.65+(1.5+2*r(7))*power,.70-.48*power]:[1,1],opacity:.55+.38*r(8),blur:large?.3+1.3*power:0};
     });
   }
   function render(original,base,layers,revision,fragmentSettings,textSettings,frameOptions={}) {
     const w=original.width,h=original.height;
     for(const c of [fragmentCanvas,textCanvas,composite])if(c.width!==w||c.height!==h){c.width=w;c.height=h;fragmentKey=textKey=null;}
-    const fk=JSON.stringify([revision,w,h,layers,fragmentSettings,frameOptions]);
+    const fk=JSON.stringify([revision,w,h,fragmentSettings,frameOptions]);
     if(fragmentKey!==fk) {
-      fragments=fragmentPlan(w,h,layers,fragmentSettings);
+      fragments=fragmentSettings.items || fragmentPlan(w,h,layers,fragmentSettings);
       const ctx=fragmentCanvas.getContext('2d');ctx.clearRect(0,0,w,h);
       if(fragments.length) {
         const source=fragmentSource(original,revision,fragmentSettings),sx=source.width/w,sy=source.height/h;
@@ -934,20 +952,23 @@ window.ObserverForeground = (() => {
       const ctx=textCanvas.getContext('2d');ctx.clearRect(0,0,w,h);
       if(textSettings.links&&textSettings.style!=='Stretch') {
         const boxes=[...(layers.main||[]),...(layers.medium||[])];
-        ctx.strokeStyle='rgba(140,175,190,.75)';ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(30,65,90,.90)';ctx.lineWidth=Math.max(1,Math.min(w,h)/800);
         words.slice(0,6).forEach((word,i)=>{
-          if(i%2||!boxes.length)return;const b=boxes[(i/2)%boxes.length],p=word.position;
+          if(i%2||!boxes.length)return;const p=word.position,b=boxes.slice().sort((a,b)=>Math.hypot((a[0]+a[2])/2-p[0],(a[1]+a[3])/2-p[1])-Math.hypot((b[0]+b[2])/2-p[0],(b[1]+b[3])/2-p[1]))[0];
           let x=Math.max(b[0],Math.min(b[2],p[0])),y=Math.max(b[1],Math.min(b[3],p[1]));
           if(p[0]>b[0]&&p[0]<b[2]&&p[1]>b[1]&&p[1]<b[3]) {
             const edges=[p[0]-b[0],b[2]-p[0],p[1]-b[1],b[3]-p[1]],closest=edges.indexOf(Math.min(...edges));
             if(closest<2)x=b[closest===0?0:2];else y=b[closest===2?1:3];
           }
-          ctx.beginPath();ctx.moveTo(p[0],p[1]+3);ctx.lineTo(x,y);ctx.stroke();
+          ctx.save();ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=2;ctx.beginPath();ctx.moveTo(p[0],p[1]+3);ctx.lineTo(x,y);ctx.stroke();ctx.restore();
         });
       }
       for(const word of words) {
         ctx.save();ctx.translate(...word.position);ctx.rotate(word.angle);
-        ctx.font=word.font;ctx.textBaseline='alphabetic';ctx.scale(...word.stretch);
+        ctx.font=word.font;ctx.textBaseline='alphabetic';ctx.globalAlpha=word.opacity;
+        // Cap each strip to its side of the image, preserving a stable central gap.
+        if(word.large){ctx.beginPath();ctx.rect(-2,-heightSafe(word.font),w*.32,heightSafe(word.font)*1.8);ctx.clip();}
+        ctx.scale(...word.stretch);
         if(word.clip){ctx.beginPath();ctx.rect(-2,-40,word.width,55);ctx.clip();}
         if(word.large){ctx.filter=`blur(${word.blur}px)`;ctx.fillStyle='rgba(15,18,22,.20)';ctx.fillText(word.text,10,1);ctx.filter='none';}
         if(!word.large&&word.echo){ctx.fillStyle='rgba(90,210,255,.30)';ctx.fillText(word.text,2,1);}
@@ -1438,6 +1459,20 @@ window.ObserverForeground = (() => {
     const overlayStyle = document.getElementById("overlayStyle");
     const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks'].map(id=>[id,document.getElementById(id)]));
     let textLayoutRevision = 0;
+    const baseContrast=document.getElementById('baseContrast'),editTarget=document.getElementById('editTarget'),resetFragments=document.getElementById('resetFragments');
+    let fragmentAnchors=null,fragmentEditState=null,fragmentGeometryKey=null,fragmentPlans=[];
+    const currentEditState=()=>editTarget.value==='fragments'?fragmentEditState:editorState;
+    function prepareFragments(layers) {
+      if(foregroundControls.fragmentOn.value!=='On')return;
+      if(!fragmentAnchors)fragmentAnchors=JSON.parse(JSON.stringify(layers));
+      const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value};
+      const key=JSON.stringify([original.width,original.height,settings]);
+      if(fragmentGeometryKey!==key) {
+        cancelBoxDrag();fragmentPlans=ObserverForeground.fragmentPlan(original.width,original.height,fragmentAnchors,settings);
+        fragmentEditState=ObserverBoxEditor.create({micro:fragmentPlans.map(f=>[f.position[0]-f.size[0]/2,f.position[1]-f.size[1]/2,f.position[0]+f.size[0]/2,f.position[1]+f.size[1]/2])});
+        fragmentGeometryKey=key;if(editTarget.value==='fragments')selectedBoxId=selectionCycle=null;
+      }
+    }
     const baseFilter = document.getElementById("baseFilter");
     const effectLayers = [1,2,3].map(i=>({
       select:document.getElementById(`effect${i}`), strength:document.getElementById(`strength${i}`),
@@ -1481,7 +1516,7 @@ window.ObserverForeground = (() => {
       structureTimer = null;
       retained = null;
       focus = null;
-      textLayoutRevision = 0;
+      textLayoutRevision = 0;fragmentAnchors=fragmentEditState=fragmentGeometryKey=null;fragmentPlans=[];
       foregroundControls.shuffleTextLayout.disabled = true;
       cachedLayers = wordState = pendingExport = null;
       editorState = selectedBoxId = selectionCycle = null;
@@ -1582,12 +1617,14 @@ window.ObserverForeground = (() => {
       if (!retained || !cachedLayers) return;
       // Empty edited arrays are valid: deleting every box leaves the base image.
       const layers = editorState ? ObserverBoxEditor.layers(editorState) : cachedLayers;
+      prepareFragments(layers);
       const base = ObserverImageBase.render(original, generation, baseFilter.value, {
         hue:xrayHue.value, saturation:xraySaturation.value, lightness:xrayLightness.value,
-        invert:xrayInvert.checked, layers:effectLayers.map(layer=>({effect:layer.select.value,strength:layer.strength.value,
+        invert:xrayInvert.checked,contrast:baseContrast.value, layers:effectLayers.map(layer=>({effect:layer.select.value,strength:layer.strength.value,
           hue:layer.hue.value,saturation:layer.saturation.value,lightness:layer.lightness.value,position:layer.position.value}))
       }, vignette.value);
       const foreground = ObserverForeground.render(original,base,layers,generation,{
+        items:foregroundControls.fragmentOn.value==='On'&&fragmentEditState?fragmentEditState.entries.map(entry=>{const f=fragmentPlans[Number(entry.id.split(':')[1])],b=entry.box;return {...f,source:f.source.slice(),position:[(b[0]+b[2])/2,(b[1]+b[3])/2],size:[b[2]-b[0],b[3]-b[1]],angle:0};}):[],
         on:foregroundControls.fragmentOn.value==='On',count:foregroundControls.fragmentCount.value,
         mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,
         style:foregroundControls.fragmentStyle.value,hue:foregroundControls.fragmentHue.value,saturation:foregroundControls.fragmentSaturation.value,
@@ -1619,17 +1656,18 @@ window.ObserverForeground = (() => {
     }
 
     function editingEnabled() {
-      return editBoxes.value === "On" && !!retained && !!editorState;
+      return editBoxes.value === "On" && !!retained && !!currentEditState() && (editTarget.value!=="fragments"||foregroundControls.fragmentOn.value==="On");
     }
 
     function selectedEntry() {
-      return editorState && editorState.entries.find(entry => entry.id === selectedBoxId);
+      return currentEditState() && currentEditState().entries.find(entry => entry.id === selectedBoxId);
     }
 
     function updateEditingControls() {
       const enabled = editingEnabled(), selected = selectedEntry();
       deleteSelected.disabled = !enabled || !selected;
       resetBoxes.disabled = !retained || !editorState;
+      resetFragments.disabled=!retained||!fragmentEditState;
       editOverlay.hidden = !enabled;
       output.tabIndex = enabled ? 0 : -1;
       output.style.touchAction = enabled ? "none" : "";
@@ -1638,8 +1676,8 @@ window.ObserverForeground = (() => {
       output.dataset.selectedBox = enabled && selected ? selected.id : "";
       const names = {main: "主框", medium: "中框", micro: "微型框"};
       selectionStatus.textContent = !enabled ? "开启后可选中方框边线。" : selected
-        ? `已选中：${names[selected.tier]} ${Number(selected.id.split(":")[1]) + 1}`
-        : editorState.entries.length ? "未选中方框；重叠边线可再次点击切换。" : "当前没有方框，可恢复自动框。";
+        ? `已选中：${editTarget.value==='fragments'?'碎片':names[selected.tier]} ${Number(selected.id.split(":")[1]) + 1}`
+        : currentEditState()?.entries.length ? "未选中方框；重叠边线可再次点击切换。" : editTarget.value==='fragments'?"当前没有碎片，可恢复初始碎片。":"当前没有方框，可恢复自动框。";
     }
 
     function drawEditGuide() {
@@ -1675,7 +1713,12 @@ window.ObserverForeground = (() => {
 
     function boxHits(event) {
       const point = outputPoint(event);
-      return point ? ObserverBoxEditor.hitTest(editorState,point.x,point.y,point.sx,point.sy,6) : [];
+      if(!point)return [];
+      const hits=ObserverBoxEditor.hitTest(currentEditState(),point.x,point.y,point.sx,point.sy,6);
+      if(hits.length||editTarget.value!=='fragments')return hits;
+      // A fragment is a filled image object: its interior is also selectable.
+      return (fragmentEditState?.entries||[]).filter(({box:b})=>point.x>=b[0]&&point.x<=b[2]&&point.y>=b[1]&&point.y<=b[3])
+        .sort((a,b)=>(a.box[2]-a.box[0])*(a.box[3]-a.box[1])-(b.box[2]-b.box[0])*(b.box[3]-b.box[1]));
     }
 
     function releaseBoxPointer(pointerId) {
@@ -1687,8 +1730,8 @@ window.ObserverForeground = (() => {
       activeDrag = null;
       if (!drag) return;
       selectionCycle = null;
-      if (drag.state === editorState && drag.revision === editorRevision) {
-        ObserverBoxEditor.move(editorState,drag.id,drag.origin,0,0,output.width,output.height);
+      if ((drag.state === editorState || drag.state === fragmentEditState) && drag.revision === editorRevision) {
+        ObserverBoxEditor.move(drag.state,drag.id,drag.origin,0,0,output.width,output.height);
       }
       releaseBoxPointer(drag.pointerId);
       output.style.cursor = "";
@@ -1697,17 +1740,17 @@ window.ObserverForeground = (() => {
     function moveBoxPointer(event) {
       const drag = activeDrag, point = outputPoint(event);
       if (!drag || !point || event.pointerId !== drag.pointerId ||
-          drag.state !== editorState || drag.revision !== editorRevision) return;
+          drag.state !== currentEditState() || drag.revision !== editorRevision) return;
       if (!drag.moved && Math.hypot(event.clientX-drag.clientX,event.clientY-drag.clientY) < 2) return;
       drag.moved = true;
-      ObserverBoxEditor.move(editorState,drag.id,drag.origin,point.x-drag.x,point.y-drag.y,output.width,output.height);
+      ObserverBoxEditor.move(currentEditState(),drag.id,drag.origin,point.x-drag.x,point.y-drag.y,output.width,output.height);
       renderOverlay();
     }
 
     function deleteSelectedBox() {
       if (!editingEnabled() || !selectedEntry()) return;
       cancelBoxDrag();
-      ObserverBoxEditor.remove(editorState,selectedBoxId);
+      ObserverBoxEditor.remove(currentEditState(),selectedBoxId);
       editorRevision++;
       selectedBoxId = selectionCycle = null;
       renderOverlay();
@@ -1804,6 +1847,8 @@ window.ObserverForeground = (() => {
       renderOverlay();
       drawEditGuide();
     });
+    editTarget.addEventListener('change',()=>{cancelBoxDrag();selectedBoxId=selectionCycle=null;renderOverlay();});
+    resetFragments.addEventListener('click',()=>{if(!fragmentEditState)return;cancelBoxDrag();ObserverBoxEditor.reset(fragmentEditState);if(editTarget.value==='fragments')selectedBoxId=selectionCycle=null;renderOverlay();});
     deleteSelected.addEventListener("click", deleteSelectedBox);
     resetBoxes.addEventListener("click", () => {
       if (!retained || !editorState) return;
@@ -1838,7 +1883,7 @@ window.ObserverForeground = (() => {
       selectionCycle = {ids, index, x: event.clientX, y: event.clientY};
       activeDrag = {pointerId: event.pointerId, id: hit.id, origin: hit.box.slice(),
         x: point.x, y: point.y, clientX: event.clientX, clientY: event.clientY,
-        state: editorState, revision: editorRevision, moved: false,
+        state: currentEditState(), revision: editorRevision, moved: false,
         repeatClick: !!repeat, hitIds: hits.map(candidate => candidate.id), hitIndex: index};
       output.setPointerCapture(event.pointerId);
       output.style.cursor = "grabbing";
@@ -1923,7 +1968,7 @@ window.ObserverForeground = (() => {
     for(const layer of effectLayers) layer.select.addEventListener("change",renderOverlay);
     xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    for(const slider of [vignette,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStrength'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
+    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStrength'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
       slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
@@ -1975,7 +2020,7 @@ window.ObserverForeground = (() => {
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_7_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_7_1_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
