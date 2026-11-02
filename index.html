@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.7.1</title>
+  <title>IMAGE OBSERVER · 构建 02.7.2</title>
   <style>
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2?v=027") format("woff2"); font-weight: 300; font-display: swap; }
     @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
@@ -61,6 +61,7 @@
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
     .actions #resetFocus { margin-top: 0; }
     button, select, input, textarea { font: inherit; }
+    #restoreForegroundText { align-self:flex-start; padding:4px 8px; border:1px solid #b9c6d9; border-radius:5px; background:#fff; color:inherit; cursor:pointer; }
     #foregroundTextContent { width:100%; min-height:80px; resize:vertical; padding:8px; border:1px solid #b9c6d9; border-radius:6px; }
     #randomEffects { margin-top:12px; padding:8px 12px; display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #b9c6d9; border-radius:6px; color:inherit; cursor:pointer; }
     button:disabled { opacity: .5; cursor: default; }
@@ -92,7 +93,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.7.1</h1>
+      <h1>IMAGE OBSERVER · 构建 02.7.2</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -190,12 +191,12 @@
 <label class="structure" for="fragmentCount"><span>碎片数量</span><input id="fragmentCount" type="range" min="0" max="100" value="35"><output>35</output></label>
 <label class="structure" for="fragmentDisplacement"><span>位移强度</span><input id="fragmentDisplacement" type="range" min="0" max="100" value="45"><output>45</output></label>
 <label class="structure" for="fragmentScale"><span>缩放波动</span><input id="fragmentScale" type="range" min="0" max="100" value="30"><output>30</output></label>
-<p class="edit-hint">修改碎片数量或变换参数会重新生成碎片；识别框编辑不影响碎片。</p></div></section>
+<p class="edit-hint">参数调整更新未编辑碎片；当前已移动、删除的碎片保留。识别框编辑不影响碎片。</p></div></section>
       <section><label class="control" for="foregroundTextOn">前景文字奔逸<select id="foregroundTextOn"><option value="Off" selected>关</option><option value="On">开</option></select></label><div id="foregroundTextParams" hidden>
 <label class="control" for="foregroundTextStyle">文字奔逸样式<select id="foregroundTextStyle"><option value="Stretch" selected>条带横排</option><option value="Float">小型散置</option></select></label>
 <label id="textLinksControl"><input id="textLinks" type="checkbox">文字连线</label>
 <label class="structure" id="textStrengthControl" for="foregroundTextStrength" hidden><span>强度</span><input id="foregroundTextStrength" type="range" min="0" max="100" value="50"><output>50</output></label>
-<label class="control" for="foregroundTextContent">文字内容<textarea id="foregroundTextContent" rows="3" maxlength="2048"></textarea></label>
+<label class="control" for="foregroundTextContent">文字内容<button id="restoreForegroundText" type="button">恢复默认</button><textarea id="foregroundTextContent" rows="3" maxlength="2048"></textarea></label>
 <label class="structure" for="foregroundTextSize"><span>文字大小</span><input id="foregroundTextSize" type="range" min="50" max="200" value="100"><output>100</output></label>
 <label class="control" for="foregroundTextColor">文字颜色<select id="foregroundTextColor"><option value="#0050FF">蓝</option><option value="#F44336">红</option><option value="#00AA64">绿</option><option value="#FFCC00">黄</option><option value="#000000" selected>黑</option><option value="#FFFFFF">白</option><option value="#808080">灰</option></select></label>
 <label class="structure" for="foregroundTextCount"><span>文字数量</span><input id="foregroundTextCount" type="range" min="0" max="100" value="35"><output>35</output></label>
@@ -880,7 +881,7 @@ window.ObserverForeground = (() => {
   const limit=(value,max)=>Math.round(Math.max(0,Math.min(100,Number(value)||0))*max/100);
   const linkCanvas=document.createElement('canvas'), fragmentCanvas=document.createElement('canvas'), textCanvas=document.createElement('canvas'), composite=document.createElement('canvas');
   let fragmentKey=null,textKey=null,fragments=[],words=[],sourceKey=null;
-  const processedSource=document.createElement('canvas'),frameSource=document.createElement('canvas'),frameOutput=document.createElement('canvas');
+  const processedSource=document.createElement('canvas'),stripSprite=document.createElement('canvas'),frameSource=document.createElement('canvas'),frameOutput=document.createElement('canvas');
   function fragmentSource(original,revision,settings) {
     const key=JSON.stringify([revision,original.width,original.height,settings.style,settings.hue,settings.saturation,settings.lightness,settings.pencil,Number(settings.contrast)||0]);
     if(settings.style!=='Pencil'&&Number(settings.hue||0)===0&&Number(settings.saturation??100)===100&&Number(settings.lightness??50)===50&&!Number(settings.contrast))return original;
@@ -941,7 +942,9 @@ window.ObserverForeground = (() => {
         y+=(r(6)*2-1)*height*.35*amount;
         angle=(r(7)*2-1)*.6*amount;stretch=1+(r(8)*2-1)*.55*amount;
       }
-      const scale=Math.pow(2,(r(9)*2-1)*1.25*variation);
+      const delta=r(9)*2-1;
+      // Lower tail reaches 35% of the old minimum; the upper tail is unchanged.
+      const scale=Math.pow(2,delta*(delta<0?2.75:1.25)*variation);
       let dw=Math.min(width*.7,sw*scale*stretch),dh=Math.min(height*.7,sh*scale/stretch);
       if(settings.policy) {
         // Dice-only placement budget: mostly small crops, less travel for large ones.
@@ -955,7 +958,9 @@ window.ObserverForeground = (() => {
           x=p.cx+Math.cos(theta)*(p.rx+dw/2);y=p.cy+Math.sin(theta)*(p.ry+dh/2);
         }
       }
-      // Keep fragment centers in the image; rotated edges may naturally clip.
+      // A 4px clarity floor retains a small image interior plus a thin border.
+      dw=Math.max(Math.min(width,4),dw);dh=Math.max(Math.min(height,4),dh);
+      // Keep axis-aligned fragment bounds within the image.
       x=Math.max(dw/2,Math.min(width-dw/2,x));y=Math.max(dh/2,Math.min(height-dh/2,y));
       return {source:[sx,sy,sw,sh],position:[x,y],size:[dw,dh],angle:0};
     });
@@ -980,30 +985,40 @@ window.ObserverForeground = (() => {
         large,stretch:large?[.65+(1.5+2*r(7))*power,.70-.48*power]:[1,1],opacity:.55+.38*r(8),blur:large?.3+1.3*power:0};
       if(large) {
         const content=String(settings.content??SOURCE).replace(/\s+/g,' ').trim();
-        const tokens=content.match(/[\p{Script=Han}]|[^\s\p{Script=Han}]+/gu)||[];
-        const start=Math.floor(r(11)*tokens.length),han=/\p{Script=Han}/u.test(tokens[start]||'');
-        const tier=r(12)<.5?0:r(12)<.85?1:2;
-        const targets=han?[2,4,6]:[5,10,18],target=Math.max(han?2:4,Math.round(targets[tier]*100/Math.max(100,Number(settings.size)||100)));
-        let candidate='';
-        for(let n=0;n<tokens.length;n++) {
-          const token=tokens[(start+n)%tokens.length];
-          candidate+=(candidate&&!han?' ':'')+token;
-          if(Array.from(candidate).length>=target)break;
+        const tokens=content.match(/[\p{Script=Han}]+|[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*[.,!?;:，。！？；：]?/gu)||[content];
+        const start=Math.floor(r(11)*tokens.length),token=tokens[start],han=/\p{Script=Han}/u.test(token);
+        const density=Math.max(1,Number(settings.size||100)/100),tier=r(12)<.5?0:r(12)<.85?1:2;
+        if(han) {
+          const chars=Array.from(token),count=Math.min(chars.length,Math.max(2,Math.round([3,5,6][tier]/density)));
+          const offset=Math.floor(r(13)*Math.max(1,chars.length-count+1));word.text=chars.slice(offset,offset+count).join('');
+        } else {
+          // Keep ordinary words whole. Only genuinely long unbroken tokens need cuts.
+          word.text=Array.from(token).length>18?Array.from(token).slice(0,Math.max(6,Math.round(14/density))).join(''):token;
+          if(density<=1&&tier>0) {
+            const next=tokens[start+1];
+            if(next&&!/\p{Script=Han}/u.test(next)&&Array.from(word.text+' '+next).length<=(tier===1?15:24))word.text+=' '+next;
+          }
         }
-        word.text=Array.from(candidate).slice(0,target).join('').trim()||content;
-        word.font=`300 ${Math.max(12,Math.round(size*(.85+.35*r(3))))}px "Observer Inter Light", "Microsoft YaHei", "PingFang SC", sans-serif`;
-        word.position[0]=Math.max(2,Math.min(width*(side||top?.48:.76),word.position[0]));
-        stripMeasure.font=word.font;
-        let measured=Math.max(1,stripMeasure.measureText(word.text).width);
-        const available=Math.max(1,Math.min(width*.34,width-word.position[0]-3));
-        if(available/measured<.8) {
-          const fontSize=Math.max(8,Math.floor(heightSafe(word.font)*available/(measured*.8)));
-          word.font=word.font.replace(/\d+px/,`${fontSize}px`);stripMeasure.font=word.font;measured=Math.max(1,stripMeasure.measureText(word.text).width);
+        word.font=`300 ${Math.max(12,Math.round(size*(.85+.35*r(3))))}px "Observer Inter Light", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif`;
+        word.position[0]=Math.max(4,Math.min(width*(side||top?.42:.72),word.position[0]));
+        const available=Math.max(1,Math.min(width*.40,width-word.position[0]-4));
+        stripMeasure.textAlign='left';stripMeasure.textBaseline='alphabetic';stripMeasure.direction='ltr';
+        const measure=()=>{
+          stripMeasure.font=word.font;const m=stripMeasure.measureText(word.text),size=heightSafe(word.font);
+          return {left:Math.floor(-m.actualBoundingBoxLeft||0),right:Math.ceil(m.actualBoundingBoxRight||m.width),
+            top:Math.floor(-(m.actualBoundingBoxAscent||size)),bottom:Math.ceil(m.actualBoundingBoxDescent||0)};
+        };
+        let ink=measure(),inkWidth=Math.max(1,ink.right-ink.left);
+        if(inkWidth*.8>available) {
+          word.font=word.font.replace(/\d+px/,`${Math.max(8,Math.floor(heightSafe(word.font)*available/(inkWidth*.8)))}px`);
+          ink=measure();inkWidth=Math.max(1,ink.right-ink.left);
         }
-        word.stretch[0]=Math.min(word.stretch[0],available/measured);
-        word.visibleWidth=measured*word.stretch[0];word.width=available;
-        const metrics=stripMeasure.measureText(word.text),ascent=(metrics.actualBoundingBoxAscent||heightSafe(word.font))*word.stretch[1];
-        word.position[1]=Math.max(ascent+2,Math.min(height-4,word.position[1]));
+        // Nothing is enlarged after this final-font measurement.
+        word.stretch[0]=Math.min(word.stretch[0],available/inkWidth);
+        word.stretch[1]=Math.min(word.stretch[1],Math.max(1,height-8)/Math.max(1,ink.bottom-ink.top));
+        word.ink=ink;word.visibleWidth=inkWidth*word.stretch[0];word.visibleHeight=Math.max(1,ink.bottom-ink.top)*word.stretch[1];word.width=available;
+        word.position[0]=Math.max(4,Math.min(width-word.visibleWidth-4,word.position[0]));
+        word.position[1]=Math.max(4,Math.min(height-word.visibleHeight-4,word.position[1]));
         word.clip=false;
       }
       return word;
@@ -1020,8 +1035,13 @@ window.ObserverForeground = (() => {
         const source=fragmentSource(original,revision,fragmentSettings),sx=source.width/w,sy=source.height/h;
         for(const f of fragments) {
           frameSource.width=frameOutput.width=Math.max(1,Math.round(f.size[0]));frameSource.height=frameOutput.height=Math.max(1,Math.round(f.size[1]));
-          const fc=frameSource.getContext('2d');fc.drawImage(source,f.source[0]*sx,f.source[1]*sy,f.source[2]*sx,f.source[3]*sy,0,0,frameSource.width,frameSource.height);
-          ObserverOverlay.render(frameOutput.getContext('2d'),frameSource,{main:[],medium:[],micro:[[0,0,frameSource.width,frameSource.height]]},{...frameOptions,labelMode:'Off'});
+          const fc=frameSource.getContext('2d');
+          const requested=ObserverOverlay.STROKE_WIDTHS[frameOptions.strokeWidth]||2;
+          const minimumSide=Math.min(frameSource.width,frameSource.height),safeStroke=Math.min(requested,minimumSide<6?1:minimumSide<10?2:4);
+          const inset=Math.min(safeStroke,Math.max(0,(minimumSide-1)/2));
+          // Fit the complete source crop inside the border rather than cover its edges.
+          fc.drawImage(source,f.source[0]*sx,f.source[1]*sy,f.source[2]*sx,f.source[3]*sy,inset,inset,frameSource.width-2*inset,frameSource.height-2*inset);
+          ObserverOverlay.render(frameOutput.getContext('2d'),frameSource,{main:[],medium:[],micro:[[0,0,frameSource.width,frameSource.height]]},{...frameOptions,strokeWidth:safeStroke,labelMode:'Off'});
           ctx.save();ctx.translate(...f.position);ctx.rotate(f.angle);ctx.drawImage(frameOutput,-f.size[0]/2,-f.size[1]/2,...f.size);ctx.restore();
         }
       }
@@ -1046,13 +1066,19 @@ window.ObserverForeground = (() => {
         ObserverOverlay.renderLines(linkCanvas.getContext('2d'),segments,frameOptions);ctx.drawImage(linkCanvas,0,0);
       }
       for(const word of words) {
+        if(word.large) {
+          const pad=6,ink=word.ink;
+          stripSprite.width=Math.max(1,ink.right-ink.left+2*pad);stripSprite.height=Math.max(1,ink.bottom-ink.top+2*pad);
+          const sc=stripSprite.getContext('2d');sc.font=word.font;sc.textAlign='left';sc.textBaseline='alphabetic';sc.direction='ltr';sc.fillStyle=textSettings.color||'#000000';
+          sc.fillText(word.text,pad-ink.left,pad-ink.top);
+          const [sx,sy]=word.stretch,x=word.position[0]-pad*sx,y=word.position[1]-pad*sy,dw=stripSprite.width*sx,dh=stripSprite.height*sy;
+          ctx.save();ctx.globalAlpha=word.opacity*.25;ctx.filter=`blur(${word.blur}px)`;ctx.drawImage(stripSprite,x+5,y+1,dw,dh);
+          ctx.filter='none';ctx.globalAlpha=word.opacity;ctx.drawImage(stripSprite,x,y,dw,dh);ctx.restore();continue;
+        }
         ctx.save();ctx.translate(...word.position);ctx.rotate(word.angle);
         ctx.font=word.font;ctx.textBaseline='alphabetic';ctx.globalAlpha=word.opacity;
-        // Cap each strip to its side of the image, preserving a stable central gap.
-        if(word.large){ctx.beginPath();ctx.rect(-2,-heightSafe(word.font),word.width+4,heightSafe(word.font)*1.8);ctx.clip();}
         ctx.scale(...word.stretch);
         if(word.clip){ctx.beginPath();ctx.rect(-2,-40,word.width,55);ctx.clip();}
-        if(word.large){ctx.filter=`blur(${word.blur}px)`;ctx.globalAlpha=word.opacity*.25;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,10,1);ctx.filter='none';}
         if(!word.large&&word.echo){ctx.globalAlpha=word.opacity*.3;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,2,1);}
         ctx.globalAlpha=word.opacity;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,0,0);ctx.restore();
       }
@@ -1568,8 +1594,15 @@ window.ObserverForeground = (() => {
       const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,policy:fragmentRandomPolicy};
       const key=JSON.stringify([original.width,original.height,settings]);
       if(fragmentGeometryKey!==key) {
-        cancelBoxDrag();fragmentPlans=ObserverForeground.fragmentPlan(original.width,original.height,fragmentAnchors,settings);
+        cancelBoxDrag();
+        const previous=fragmentEditState,oldEntries=new Map((previous?.entries||[]).map(e=>[e.id,e]));
+        const oldAutomatic=new Map((previous?.automatic||[]).map(e=>[e.id,e]));
+        fragmentPlans=ObserverForeground.fragmentPlan(original.width,original.height,fragmentAnchors,settings);
         fragmentEditState=ObserverBoxEditor.create({micro:fragmentPlans.map(f=>[f.position[0]-f.size[0]/2,f.position[1]-f.size[1]/2,f.position[0]+f.size[0]/2,f.position[1]+f.size[1]/2])});
+        if(previous)fragmentEditState.entries=fragmentEditState.entries.filter(e=>!oldAutomatic.has(e.id)||oldEntries.has(e.id)).map(e=>{
+          const old=oldEntries.get(e.id),initial=oldAutomatic.get(e.id);
+          return old&&initial&&JSON.stringify(old.box)!==JSON.stringify(initial.box)?{...e,box:old.box.slice()}:e;
+        });
         fragmentGeometryKey=key;if(editTarget.value==='fragments')selectedBoxId=selectionCycle=null;
       }
     }
@@ -2067,6 +2100,9 @@ window.ObserverForeground = (() => {
       textLayoutRevision++;renderOverlay();
     });
     foregroundControls.foregroundTextContent.addEventListener('input',renderOverlay);
+    document.getElementById('restoreForegroundText').addEventListener('click',()=>{
+      foregroundControls.foregroundTextContent.value=ObserverForeground.SOURCE;renderOverlay();
+    });
     randomEffects.addEventListener('click',()=>{
       if(!retained)return;
       cancelBoxDrag();
@@ -2171,7 +2207,7 @@ window.ObserverForeground = (() => {
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_7_1_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_7_2_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
