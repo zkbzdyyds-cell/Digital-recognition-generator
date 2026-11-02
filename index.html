@@ -164,6 +164,7 @@
 <label class="structure" for="fragmentHue"><span>碎片色相</span><input id="fragmentHue" type="range" min="0" max="360" value="0"><output>0</output></label>
 <label class="structure" for="fragmentSaturation"><span>碎片饱和度</span><input id="fragmentSaturation" type="range" min="0" max="100" value="100"><output>100</output></label>
 <label class="structure" for="fragmentLightness"><span>碎片明度</span><input id="fragmentLightness" type="range" min="0" max="100" value="50"><output>50</output></label>
+<label class="structure" for="fragmentContrast"><span>碎片对比度</span><input id="fragmentContrast" type="range" min="-100" max="100" value="0"><output>0</output></label>
 <label class="structure" id="pencilControl" for="pencilStrength" hidden><span>铅笔强度</span><input id="pencilStrength" type="range" min="0" max="100" value="65"><output>65</output></label>
 <label class="structure" for="fragmentCount"><span>碎片数量</span><input id="fragmentCount" type="range" min="0" max="100" value="35"><output>35</output></label>
 <label class="structure" for="fragmentDisplacement"><span>位移强度</span><input id="fragmentDisplacement" type="range" min="0" max="100" value="45"><output>45</output></label>
@@ -861,8 +862,8 @@ window.ObserverForeground = (() => {
   let fragmentKey=null,textKey=null,fragments=[],words=[],sourceKey=null;
   const processedSource=document.createElement('canvas'),frameSource=document.createElement('canvas'),frameOutput=document.createElement('canvas');
   function fragmentSource(original,revision,settings) {
-    const key=JSON.stringify([revision,original.width,original.height,settings.style,settings.hue,settings.saturation,settings.lightness,settings.pencil]);
-    if(settings.style!=='Pencil'&&Number(settings.hue||0)===0&&Number(settings.saturation??100)===100&&Number(settings.lightness??50)===50)return original;
+    const key=JSON.stringify([revision,original.width,original.height,settings.style,settings.hue,settings.saturation,settings.lightness,settings.pencil,Number(settings.contrast)||0]);
+    if(settings.style!=='Pencil'&&Number(settings.hue||0)===0&&Number(settings.saturation??100)===100&&Number(settings.lightness??50)===50&&!Number(settings.contrast))return original;
     if(sourceKey!==key) {
       const scale=Math.min(1,900/Math.max(original.width,original.height));
       processedSource.width=Math.max(1,Math.round(original.width*scale));processedSource.height=Math.max(1,Math.round(original.height*scale));
@@ -879,6 +880,15 @@ window.ObserverForeground = (() => {
           const edge=Math.max(0,Math.hypot(gx,gy)-18),dry=.65+.35*random(i,9);
           const value=Math.max(35,255-Math.min(220,edge*(.5+1.3*amount)*dry));
           a[i*4]=a[i*4+1]=a[i*4+2]=value;a[i*4+3]=255;
+        }
+        ctx.putImageData(image,0,0);
+      }
+      // Apply after pencil extraction too: zero is a true bypass; paper stays white.
+      const contrast=Number(settings.contrast)||0;
+      if(contrast) {
+        const image=ctx.getImageData(0,0,w,h),a=image.data,factor=Math.pow(2,contrast/65);
+        for(let i=0;i<a.length;i+=4)for(let c=0;c<3;c++) {
+          a[i+c]=settings.style==='Pencil'?255-(255-a[i+c])*factor:(a[i+c]-128)*factor+128;
         }
         ctx.putImageData(image,0,0);
       }
@@ -912,7 +922,19 @@ window.ObserverForeground = (() => {
         angle=(r(7)*2-1)*.6*amount;stretch=1+(r(8)*2-1)*.55*amount;
       }
       const scale=Math.pow(2,(r(9)*2-1)*1.25*variation);
-      const dw=Math.min(width*.7,sw*scale*stretch),dh=Math.min(height*.7,sh*scale/stretch);
+      let dw=Math.min(width*.7,sw*scale*stretch),dh=Math.min(height*.7,sh*scale/stretch);
+      if(settings.policy) {
+        // Dice-only placement budget: mostly small crops, less travel for large ones.
+        const p=settings.policy,cap=i%11===0?.22:.13,shrink=Math.min(1,width*cap/dw,height*cap/dh);
+        dw*=shrink;dh*=shrink;
+        const mobility=Math.max(.3,1-Math.sqrt(dw*dh/(width*height))*3);
+        x=cx+(x-cx)*mobility;y=cy+(y-cy)*mobility;
+        const nx=(x-p.cx)/p.rx,ny=(y-p.cy)/p.ry;
+        if(Math.hypot(nx,ny)<1) {
+          const theta=Math.hypot(nx,ny)<.01?phase:Math.atan2(ny,nx);
+          x=p.cx+Math.cos(theta)*(p.rx+dw/2);y=p.cy+Math.sin(theta)*(p.ry+dh/2);
+        }
+      }
       // Keep fragment centers in the image; rotated edges may naturally clip.
       x=Math.max(dw/2,Math.min(width-dw/2,x));y=Math.max(dh/2,Math.min(height-dh/2,y));
       return {source:[sx,sy,sw,sh],position:[x,y],size:[dw,dh],angle:0};
@@ -1483,18 +1505,18 @@ window.ObserverForeground = (() => {
     const labelMode = document.getElementById("labelMode");
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
-    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks','foregroundTextContent','foregroundTextSize','foregroundTextColor'].map(id=>[id,document.getElementById(id)]));
+    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks','foregroundTextContent','foregroundTextSize','foregroundTextColor'].map(id=>[id,document.getElementById(id)]));
     foregroundControls.foregroundTextContent.value=ObserverForeground.SOURCE;
     const randomEffects=document.getElementById('randomEffects');
     let visualRandomState=0x6b51a297;
     let textLayoutRevision = 0;
     const baseContrast=document.getElementById('baseContrast'),editTarget=document.getElementById('editTarget'),resetFragments=document.getElementById('resetFragments');
-    let fragmentAnchors=null,fragmentEditState=null,fragmentGeometryKey=null,fragmentPlans=[];
+    let fragmentAnchors=null,fragmentEditState=null,fragmentGeometryKey=null,fragmentPlans=[],fragmentRandomPolicy=null;
     const currentEditState=()=>editTarget.value==='fragments'?fragmentEditState:editorState;
     function prepareFragments(layers) {
       if(foregroundControls.fragmentOn.value!=='On')return;
       if(!fragmentAnchors)fragmentAnchors=JSON.parse(JSON.stringify(layers));
-      const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value};
+      const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,policy:fragmentRandomPolicy};
       const key=JSON.stringify([original.width,original.height,settings]);
       if(fragmentGeometryKey!==key) {
         cancelBoxDrag();fragmentPlans=ObserverForeground.fragmentPlan(original.width,original.height,fragmentAnchors,settings);
@@ -1545,7 +1567,7 @@ window.ObserverForeground = (() => {
       structureTimer = null;
       retained = null;
       focus = null;
-      textLayoutRevision = 0;fragmentAnchors=fragmentEditState=fragmentGeometryKey=null;fragmentPlans=[];
+      textLayoutRevision = 0;fragmentAnchors=fragmentEditState=fragmentGeometryKey=null;fragmentPlans=[];fragmentRandomPolicy=null;
       foregroundControls.shuffleTextLayout.disabled = true;
       cachedLayers = wordState = pendingExport = null;
       editorState = selectedBoxId = selectionCycle = null;
@@ -1657,7 +1679,7 @@ window.ObserverForeground = (() => {
         on:foregroundControls.fragmentOn.value==='On',count:foregroundControls.fragmentCount.value,
         mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,
         style:foregroundControls.fragmentStyle.value,hue:foregroundControls.fragmentHue.value,saturation:foregroundControls.fragmentSaturation.value,
-        lightness:foregroundControls.fragmentLightness.value,pencil:foregroundControls.pencilStrength.value
+        lightness:foregroundControls.fragmentLightness.value,contrast:foregroundControls.fragmentContrast.value,pencil:foregroundControls.pencilStrength.value
       },{on:foregroundControls.foregroundTextOn.value==='On',count:foregroundControls.foregroundTextCount.value,
         displacement:foregroundControls.foregroundTextDisplacement.value,layout:textLayoutRevision,
         content:foregroundControls.foregroundTextContent.value,size:foregroundControls.foregroundTextSize.value,color:foregroundControls.foregroundTextColor.value,
@@ -2002,21 +2024,45 @@ window.ObserverForeground = (() => {
       const rand=()=>{visualRandomState=(Math.imul(1664525,visualRandomState)+1013904223)>>>0;return visualRandomState/4294967296;};
       const pick=values=>values[Math.floor(rand()*values.length)],range=(a,b)=>Math.round(a+rand()*(b-a));
       const set=(el,value)=>{el.value=String(value);const label=el.parentElement.querySelector('output');if(label)label.value=el.value;};
-      set(overlayColor,pick(['#0050FF','#F44336','#00AA64','#FFCC00'].filter(c=>c!==overlayColor.value)));
-      set(strokeWidth,pick(['Thin','Medium','Thick']));set(overlayStyle,pick(['VECTOR','INK BLEED','SCAN']));set(distortionStrength,range(15,70));distortionValue.value=distortionStrength.value;
-      set(baseFilter,pick(['Original','XRay']));set(xrayHue,range(0,360));set(xraySaturation,range(35,95));set(xrayLightness,range(40,72));xrayInvert.checked=rand()<.35;
+      // Internal weighted families only: no template UI or labels.
+      const templates=[
+        {weight:28,h:[192,220],s:[45,78],l:[49,65],invert:.7,contrast:[18,48],colors:['#0050FF','#00AA64'],text:['#FFFFFF','#808080'],effects:['Noise','CRT','Wave'],fx:[18,38],fragments:[10,28],textCount:[16,32]},
+        {weight:18,h:[310,355],s:[14,36],l:[67,82],invert:.2,contrast:[-25,12],colors:['#F44336','#0050FF'],text:['#FFFFFF','#808080'],effects:['Noise','CRT','Glow'],fx:[8,24],fragments:[6,20],textCount:[8,20]},
+        {weight:22,h:[200,220],s:[0,5],l:[43,57],invert:.45,contrast:[35,62],colors:['#F44336','#0050FF'],text:['#000000','#FFFFFF'],effects:['Noise','Glitch','CRT'],fx:[12,30],fragments:[10,25],textCount:[14,28]},
+        {weight:20,h:[195,215],s:[12,35],l:[55,67],invert:.1,contrast:[5,25],colors:['#0050FF','#00AA64'],text:['#FFFFFF','#808080'],effects:['Noise','CRT','Wave'],fx:[6,19],fragments:[4,14],textCount:[6,18]},
+        {weight:12,h:[185,215],s:[30,65],l:[48,64],invert:.55,contrast:[15,40],colors:['#0050FF','#F44336'],text:['#FFFFFF','#808080'],effects:['Glitch','Wave','Streak'],fx:[42,66],fragments:[12,30],textCount:[12,26]}
+      ];
+      let draw=rand()*templates.reduce((sum,t)=>sum+t.weight,0),index=0;
+      while(index<templates.length-1&&draw>=templates[index].weight)draw-=templates[index++].weight;
+      const t=templates[index],within=bounds=>range(...bounds),hue=within(t.h),ink=pick(t.colors);
+      set(overlayColor,ink);set(strokeWidth,pick(['Thin','Thin','Medium']));
+      set(overlayStyle,index===2||index===3?pick(['VECTOR','VECTOR','INK BLEED']):pick(['VECTOR','INK BLEED','SCAN']));
+      set(distortionStrength,index===4?range(15,35):range(10,40));distortionValue.value=distortionStrength.value;
+      set(baseFilter,index===3&&rand()<.4?'Original':'XRay');set(xrayHue,hue);set(xraySaturation,within(t.s));set(xrayLightness,within(t.l));xrayInvert.checked=rand()<t.invert;set(baseContrast,within(t.contrast));
+      const primary=pick(t.effects),accentHue=ink==='#F44336'?355:ink==='#00AA64'?165:210;
       effectLayers.forEach((layer,i)=>{
-        set(layer.select,i===0?pick(['Noise','CRT','Glitch','Wave','Streak','Glow']):rand()<.35?pick(['Noise','CRT','Glitch','Wave','Streak','Glow']):'None');
-        set(layer.strength,range(12,55));set(layer.hue,range(0,360));set(layer.saturation,range(50,95));set(layer.lightness,range(40,75));set(layer.position,range(10,90));
+        // One dominant effect; additional layers are quiet supporting textures.
+        const type=i===0?primary:i===1&&rand()<.55?pick(['Noise','CRT','Glow']):i===2&&index!==3&&rand()<.08?'Noise':'None';
+        set(layer.select,type);set(layer.strength,i===0?within(t.fx):range(5,16));
+        set(layer.hue,accentHue);set(layer.saturation,index===1?range(25,45):range(55,80));set(layer.lightness,range(50,68));
+        const focusY=focus?focus[1]/original.height:.5;
+        set(layer.position,primary==='Wave'?(focusY<.5?range(72,90):range(10,28)):range(15,85));
       });
-      set(vignette,range(-45,50));
+      set(vignette,index===1?range(-25,5):range(-8,32));
       const f=foregroundControls,manual=fragmentEditState&&JSON.stringify(fragmentEditState.entries)!==JSON.stringify(fragmentEditState.automatic);
-      // Protect edited geometry and deleted records: do not randomize the controls
-      // that would regenerate it. Other fragment styling can still vary.
-      if(!manual){set(f.fragmentOn,rand()<.5?'On':'Off');set(f.fragmentCount,range(15,55));set(f.fragmentMode,pick(['Turbulence','Rotate','Ripple']));set(f.fragmentDisplacement,range(20,70));set(f.fragmentScale,range(10,55));}
-      else set(f.fragmentOn,'On');
-      set(f.fragmentStyle,pick(['Original','Pencil']));set(f.fragmentHue,range(0,360));set(f.fragmentSaturation,range(30,100));set(f.fragmentLightness,range(35,70));set(f.pencilStrength,range(40,85));
-      set(f.foregroundTextOn,rand()<.7?'On':'Off');set(f.foregroundTextCount,range(15,55));set(f.foregroundTextDisplacement,range(20,80));set(f.foregroundTextSize,range(65,145));set(f.foregroundTextColor,pick(['#0050FF','#F44336','#00AA64','#FFCC00','#000000','#FFFFFF','#808080']));set(f.foregroundTextStyle,pick(['Float','Stretch']));set(f.foregroundTextStrength,range(20,70));
+      if(!manual) {
+        const main=cachedLayers.main[0]||[original.width*.25,original.height*.25,original.width*.75,original.height*.75];
+        fragmentRandomPolicy={cx:focus?focus[0]:(main[0]+main[2])/2,cy:focus?focus[1]:(main[1]+main[3])/2,
+          rx:Math.max(original.width*.16,(main[2]-main[0])*.26),ry:Math.max(original.height*.16,(main[3]-main[1])*.26)};
+        set(f.fragmentOn,rand()<(index===3?.25:.55)?'On':'Off');set(f.fragmentCount,within(t.fragments));
+        set(f.fragmentMode,pick(['Turbulence','Rotate','Ripple']));set(f.fragmentDisplacement,range(30,65));set(f.fragmentScale,range(5,25));
+      } else set(f.fragmentOn,'On');
+      // Keep fragments neutral: no third competing color family.
+      set(f.fragmentStyle,rand()<(index===2?.55:.25)?'Pencil':'Original');set(f.fragmentHue,0);set(f.fragmentSaturation,range(0,18));set(f.fragmentLightness,index===1?range(52,65):range(44,58));set(f.fragmentContrast,index===2?range(15,45):range(-15,20));set(f.pencilStrength,range(45,75));
+      const large=index!==1&&index!==3&&rand()<.18;
+      set(f.foregroundTextOn,rand()<(index===3?.45:.75)?'On':'Off');set(f.foregroundTextStyle,large?'Stretch':'Float');
+      set(f.foregroundTextCount,large?range(4,12):within(t.textCount));set(f.foregroundTextDisplacement,range(25,65));
+      set(f.foregroundTextSize,large?range(55,80):range(75,110));set(f.foregroundTextColor,pick(t.text));set(f.foregroundTextStrength,large?range(20,40):range(15,45));
       textLayoutRevision=range(1,1000000);
       renderOverlay();
     });
@@ -2024,7 +2070,7 @@ window.ObserverForeground = (() => {
     for(const layer of effectLayers) layer.select.addEventListener("change",renderOverlay);
     xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
+    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
       slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
