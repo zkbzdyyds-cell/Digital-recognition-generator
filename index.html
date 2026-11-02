@@ -50,7 +50,9 @@
     #resetFocus:disabled { opacity: .5; cursor: default; }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
     .actions #resetFocus { margin-top: 0; }
-    button, select, input { font: inherit; }
+    button, select, input, textarea { font: inherit; }
+    #foregroundTextContent { width:100%; min-height:80px; resize:vertical; padding:8px; border:1px solid #b9c6d9; border-radius:6px; }
+    #randomEffects { margin-top:12px; padding:8px 12px; display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #b9c6d9; border-radius:6px; color:inherit; cursor:pointer; }
     button:disabled { opacity: .5; cursor: default; }
     #downloadPNG, #shuffleWord, #deleteSelected, #resetBoxes { padding: 8px 12px; border: 1px solid #b9c6d9; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; }
     #downloadPNG { color: #0050ff; border-color: #8aafff; }
@@ -90,6 +92,8 @@
       <span>JPG / PNG · 最长边不超过 1600px · 无需联网</span>
       <input id="upload" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="上传 JPG 或 PNG 图片">
     </label>
+    <button id="randomEffects" type="button" disabled><svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="3" fill="none" stroke="currentColor"/><g fill="currentColor"><circle cx="6" cy="6" r="1.2"/><circle cx="14" cy="6" r="1.2"/><circle cx="10" cy="10" r="1.2"/><circle cx="6" cy="14" r="1.2"/><circle cx="14" cy="14" r="1.2"/></g></svg>随机效果</button>
+    <span class="edit-hint">有手动碎片编辑时，保留其数量和变换设置。</span>
     <label class="structure" for="structure"><span>结构强度</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
     <div class="actions">
       <button id="resetFocus" type="button" disabled>恢复自动焦点</button>
@@ -169,6 +173,9 @@
 <label class="control" for="foregroundTextStyle">文字奔逸样式<select id="foregroundTextStyle"><option value="Stretch" selected>条带横排</option><option value="Float">小型散置</option></select></label>
 <label id="textLinksControl"><input id="textLinks" type="checkbox">文字连线</label>
 <label class="structure" id="textStrengthControl" for="foregroundTextStrength" hidden><span>强度</span><input id="foregroundTextStrength" type="range" min="0" max="100" value="50"><output>50</output></label>
+<label class="control" for="foregroundTextContent">文字内容<textarea id="foregroundTextContent" rows="3" maxlength="2048"></textarea></label>
+<label class="structure" for="foregroundTextSize"><span>文字大小</span><input id="foregroundTextSize" type="range" min="50" max="200" value="100"><output>100</output></label>
+<label class="control" for="foregroundTextColor">文字颜色<select id="foregroundTextColor"><option value="#0050FF">蓝</option><option value="#F44336">红</option><option value="#00AA64">绿</option><option value="#FFCC00">黄</option><option value="#000000" selected>黑</option><option value="#FFFFFF">白</option><option value="#808080">灰</option></select></label>
 <label class="structure" for="foregroundTextCount"><span>文字数量</span><input id="foregroundTextCount" type="range" min="0" max="100" value="35"><output>35</output></label>
 <label class="structure" for="foregroundTextDisplacement"><span>位移强度</span><input id="foregroundTextDisplacement" type="range" min="0" max="100" value="45"><output>45</output></label>
 <button id="shuffleTextLayout" type="button" disabled>换一组布局</button>
@@ -850,7 +857,7 @@ window.ObserverForeground = (() => {
     n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;
   };
   const limit=(value,max)=>Math.round(Math.max(0,Math.min(100,Number(value)||0))*max/100);
-  const fragmentCanvas=document.createElement('canvas'), textCanvas=document.createElement('canvas'), composite=document.createElement('canvas');
+  const linkCanvas=document.createElement('canvas'), fragmentCanvas=document.createElement('canvas'), textCanvas=document.createElement('canvas'), composite=document.createElement('canvas');
   let fragmentKey=null,textKey=null,fragments=[],words=[],sourceKey=null;
   const processedSource=document.createElement('canvas'),frameSource=document.createElement('canvas'),frameOutput=document.createElement('canvas');
   function fragmentSource(original,revision,settings) {
@@ -914,15 +921,17 @@ window.ObserverForeground = (() => {
   const heightSafe=font=>Math.max(16,parseInt(font.split(' ')[1],10)||32);
   function textPlan(width,height,settings) {
     if(!settings.on)return [];
+    const units=(String(settings.content??SOURCE).slice(0,2048).trim().match(/\S+(?:\s+\S+){0,3}/g)||[]).map(unit=>unit.replace(/\s+/g,' '));
+    if(!units.length)return [];
     const drift=Number(settings.displacement)/100,seed=settings.layout||0;
     const large=settings.style==='Stretch',power=Number(settings.strength??50)/100;
-    const size=large?Math.min(width,height)*(.09+.13*power):Math.max(12,Math.min(26,Math.min(width,height)*.025));
+    const size=(large?Math.min(width,height)*(.09+.13*power):Math.max(12,Math.min(26,Math.min(width,height)*.025)))*Math.max(.5,Math.min(2,Number(settings.size??100)/100));
     return Array.from({length:limit(settings.count,40)},(_,i)=>{
       const r=c=>random(i,c,seed);
       const side=i%2===0,top=i%7===0;
       const x=width*(top?(.05+r(0)*.45):side?(.015+r(0)*.10):(.68+r(0)*.20));
       const y=height*(top?(.03+r(1)*.14):(.10+r(1)*.83));
-      return {text:phrases[i%phrases.length],position:[x+(r(9)-.5)*width*.08*drift,y+(r(10)-.5)*height*.08*drift],angle:0,
+      return {text:units[i%units.length],position:[x+(r(9)-.5)*width*.08*drift,y+(r(10)-.5)*height*.08*drift],angle:0,
         font:`300 ${Math.round(size*(.85+.35*r(3)))}px "Observer Inter Light", sans-serif`,
         echo:r(4)<.28,clip:r(5)<.25,width:width*(.18+.35*r(6)),
         large,stretch:large?[.65+(1.5+2*r(7))*power,.70-.48*power]:[1,1],opacity:.55+.38*r(8),blur:large?.3+1.3*power:0};
@@ -930,7 +939,7 @@ window.ObserverForeground = (() => {
   }
   function render(original,base,layers,revision,fragmentSettings,textSettings,frameOptions={}) {
     const w=original.width,h=original.height;
-    for(const c of [fragmentCanvas,textCanvas,composite])if(c.width!==w||c.height!==h){c.width=w;c.height=h;fragmentKey=textKey=null;}
+    for(const c of [fragmentCanvas,textCanvas,linkCanvas,composite])if(c.width!==w||c.height!==h){c.width=w;c.height=h;fragmentKey=textKey=null;}
     const fk=JSON.stringify([revision,w,h,fragmentSettings,frameOptions]);
     if(fragmentKey!==fk) {
       fragments=fragmentSettings.items || fragmentPlan(w,h,layers,fragmentSettings);
@@ -946,13 +955,13 @@ window.ObserverForeground = (() => {
       }
       fragmentKey=fk;
     }
-    const tk=JSON.stringify([revision,w,h,textSettings,textSettings.links&&textSettings.style!=='Stretch'?[layers.main,layers.medium]:null]);
+    const tk=JSON.stringify([revision,w,h,textSettings,textSettings.links&&textSettings.style!=='Stretch'?[layers.main,layers.medium,frameOptions]:null]);
     if(textKey!==tk) {
       words=textPlan(w,h,textSettings);
       const ctx=textCanvas.getContext('2d');ctx.clearRect(0,0,w,h);
       if(textSettings.links&&textSettings.style!=='Stretch') {
         const boxes=[...(layers.main||[]),...(layers.medium||[])];
-        ctx.strokeStyle='rgba(30,65,90,.90)';ctx.lineWidth=Math.max(1,Math.min(w,h)/800);
+        const segments=[];
         words.slice(0,6).forEach((word,i)=>{
           if(i%2||!boxes.length)return;const p=word.position,b=boxes.slice().sort((a,b)=>Math.hypot((a[0]+a[2])/2-p[0],(a[1]+a[3])/2-p[1])-Math.hypot((b[0]+b[2])/2-p[0],(b[1]+b[3])/2-p[1]))[0];
           let x=Math.max(b[0],Math.min(b[2],p[0])),y=Math.max(b[1],Math.min(b[3],p[1]));
@@ -960,8 +969,9 @@ window.ObserverForeground = (() => {
             const edges=[p[0]-b[0],b[2]-p[0],p[1]-b[1],b[3]-p[1]],closest=edges.indexOf(Math.min(...edges));
             if(closest<2)x=b[closest===0?0:2];else y=b[closest===2?1:3];
           }
-          ctx.save();ctx.shadowColor='rgba(255,255,255,.8)';ctx.shadowBlur=2;ctx.beginPath();ctx.moveTo(p[0],p[1]+3);ctx.lineTo(x,y);ctx.stroke();ctx.restore();
+          segments.push([p[0],p[1]+3,x,y]);
         });
+        ObserverOverlay.renderLines(linkCanvas.getContext('2d'),segments,frameOptions);ctx.drawImage(linkCanvas,0,0);
       }
       for(const word of words) {
         ctx.save();ctx.translate(...word.position);ctx.rotate(word.angle);
@@ -970,9 +980,9 @@ window.ObserverForeground = (() => {
         if(word.large){ctx.beginPath();ctx.rect(-2,-heightSafe(word.font),w*.32,heightSafe(word.font)*1.8);ctx.clip();}
         ctx.scale(...word.stretch);
         if(word.clip){ctx.beginPath();ctx.rect(-2,-40,word.width,55);ctx.clip();}
-        if(word.large){ctx.filter=`blur(${word.blur}px)`;ctx.fillStyle='rgba(15,18,22,.20)';ctx.fillText(word.text,10,1);ctx.filter='none';}
-        if(!word.large&&word.echo){ctx.fillStyle='rgba(90,210,255,.30)';ctx.fillText(word.text,2,1);}
-        ctx.fillStyle=word.large?'rgba(12,14,18,.92)':'rgba(245,250,255,.90)';ctx.fillText(word.text,0,0);ctx.restore();
+        if(word.large){ctx.filter=`blur(${word.blur}px)`;ctx.globalAlpha=word.opacity*.25;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,10,1);ctx.filter='none';}
+        if(!word.large&&word.echo){ctx.globalAlpha=word.opacity*.3;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,2,1);}
+        ctx.globalAlpha=word.opacity;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,0,0);ctx.restore();
       }
       textKey=tk;
     }
@@ -1118,7 +1128,7 @@ window.ObserverForeground = (() => {
   }
 
   // Geometry is shared by VECTOR and the ink mask; neither changes box data.
-  function paintOverlay(context, width, height, layers, labels, stroke, areas) {
+  function paintOverlay(context, width, height, layers, labels, stroke, areas, paths=[]) {
     for (const tier of ['main', 'medium', 'micro']) {
       for (const box of layers[tier] || []) {
         if (!box.every(Number.isFinite)) continue;
@@ -1133,6 +1143,17 @@ window.ObserverForeground = (() => {
         context.fillRect(x2 - line, y1, line, y2 - y1);
         if (areas) areas.push([x1,y1,x2,y1+line], [x1,y2-line,x2,y2],
           [x1,y1,x1+line,y2], [x2-line,y1,x2,y2]);
+      }
+    }
+    context.strokeStyle=context.fillStyle;context.lineWidth=stroke;
+    for(const [x1,y1,x2,y2] of paths) {
+      context.beginPath();context.moveTo(x1,y1);context.lineTo(x2,y2);context.stroke();
+      if(areas) {
+        const steps=Math.max(1,Math.ceil(Math.hypot(x2-x1,y2-y1)/48));
+        for(let i=0;i<steps;i++) {
+          const ax=x1+(x2-x1)*i/steps,ay=y1+(y2-y1)*i/steps,bx=x1+(x2-x1)*(i+1)/steps,by=y1+(y2-y1)*(i+1)/steps;
+          areas.push([Math.min(ax,bx)-stroke,Math.min(ay,by)-stroke,Math.max(ax,bx)+stroke,Math.max(ay,by)+stroke]);
+        }
       }
     }
     context.textAlign = 'left';
@@ -1150,8 +1171,8 @@ window.ObserverForeground = (() => {
     return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
   }
 
-  function inkOverlay(width, height, layers, labels, stroke, color, seed) {
-    const key = JSON.stringify([width, height, layers, labels, stroke, seed]);
+  function inkOverlay(width, height, layers, labels, stroke, color, seed, paths=[]) {
+    const key = JSON.stringify([width, height, layers, labels, stroke, seed, paths]);
     if (!inkCache) inkCache = {source: document.createElement('canvas'),
       mask: document.createElement('canvas'), tinted: document.createElement('canvas')};
     const cache = inkCache;
@@ -1168,7 +1189,7 @@ window.ObserverForeground = (() => {
       target.clearRect(0, 0, width, height);
       source.fillStyle = '#fff';
       const areas = [];
-      paintOverlay(source, width, height, layers, labels, stroke, areas);
+      paintOverlay(source, width, height, layers, labels, stroke, areas, paths);
       // Process only edge bands and text, with a two-pixel halo. The original
       // alpha stays immutable, so overlapping patches yield identical pixels.
       // No full-image filtering, global blur, or growing per-image cache.
@@ -1232,8 +1253,8 @@ window.ObserverForeground = (() => {
     return cache.tinted;
   }
 
-  function scanOverlay(width, height, layers, labels, stroke, color, seed, strength) {
-    const key = JSON.stringify([width, height, layers, labels, stroke, seed, strength]);
+  function scanOverlay(width, height, layers, labels, stroke, color, seed, strength, paths=[]) {
+    const key = JSON.stringify([width, height, layers, labels, stroke, seed, strength, paths]);
     if (!scanCache) scanCache = {source: document.createElement('canvas'),
       mask: document.createElement('canvas'), tinted: document.createElement('canvas')};
     const cache = scanCache;
@@ -1250,7 +1271,7 @@ window.ObserverForeground = (() => {
       target.clearRect(0, 0, width, height);
       source.fillStyle = '#fff';
       const areas = [];
-      paintOverlay(source, width, height, layers, labels, stroke, areas);
+      paintOverlay(source, width, height, layers, labels, stroke, areas, paths);
       const amount = strength / 100;
       const maxShift = Math.ceil(6 * amount), trail = Math.ceil(3 * amount);
       const reach = maxShift + trail + 1;
@@ -1332,12 +1353,12 @@ window.ObserverForeground = (() => {
       if (options.style === 'SCAN') {
         const strength = options.distortion == null ? 45 : Math.round(Number(options.distortion) || 0);
         context.drawImage(scanOverlay(width, height, layers, labels, stroke, color,
-          Number(options.seed) >>> 0, Math.max(0, Math.min(100, strength))), 0, 0);
+          Number(options.seed) >>> 0, Math.max(0, Math.min(100, strength)), options.paths||[]), 0, 0);
       } else if (options.style === 'INK BLEED') {
         context.drawImage(inkOverlay(width, height, layers, labels, stroke, color,
-          Number(options.seed) >>> 0), 0, 0);
+          Number(options.seed) >>> 0, options.paths||[]), 0, 0);
       } else {
-        paintOverlay(context, width, height, layers, labels, stroke);
+        paintOverlay(context, width, height, layers, labels, stroke, null, options.paths||[]);
       }
       return labels;
     } finally {
@@ -1345,9 +1366,14 @@ window.ObserverForeground = (() => {
     }
   }
 
+  const transparentLines=document.createElement('canvas');
+  function renderLines(context,paths,options={}) {
+    if(transparentLines.width!==context.canvas.width||transparentLines.height!==context.canvas.height){transparentLines.width=context.canvas.width;transparentLines.height=context.canvas.height;}
+    return render(context,transparentLines,{main:[],medium:[],micro:[]},{...options,labelMode:'Off',paths});
+  }
   root.ObserverOverlay = Object.freeze({EMOTION_POOL, STROKE_WIDTHS, LABEL_MODES,
     CUSTOM_TEXT_MAX_LENGTH, createWordState, shuffleWord, imageSeed, cleanCustomText,
-    layoutLabels, render});
+    layoutLabels, render, renderLines});
 })(typeof window !== 'undefined' ? window : globalThis);
 
   </script>
@@ -1457,7 +1483,10 @@ window.ObserverForeground = (() => {
     const labelMode = document.getElementById("labelMode");
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
-    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks'].map(id=>[id,document.getElementById(id)]));
+    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks','foregroundTextContent','foregroundTextSize','foregroundTextColor'].map(id=>[id,document.getElementById(id)]));
+    foregroundControls.foregroundTextContent.value=ObserverForeground.SOURCE;
+    const randomEffects=document.getElementById('randomEffects');
+    let visualRandomState=0x6b51a297;
     let textLayoutRevision = 0;
     const baseContrast=document.getElementById('baseContrast'),editTarget=document.getElementById('editTarget'),resetFragments=document.getElementById('resetFragments');
     let fragmentAnchors=null,fragmentEditState=null,fragmentGeometryKey=null,fragmentPlans=[];
@@ -1631,6 +1660,7 @@ window.ObserverForeground = (() => {
         lightness:foregroundControls.fragmentLightness.value,pencil:foregroundControls.pencilStrength.value
       },{on:foregroundControls.foregroundTextOn.value==='On',count:foregroundControls.foregroundTextCount.value,
         displacement:foregroundControls.foregroundTextDisplacement.value,layout:textLayoutRevision,
+        content:foregroundControls.foregroundTextContent.value,size:foregroundControls.foregroundTextSize.value,color:foregroundControls.foregroundTextColor.value,
         style:foregroundControls.foregroundTextStyle.value,strength:foregroundControls.foregroundTextStrength.value,links:foregroundControls.textLinks.checked
       },{strokeWidth:strokeWidth.value,color:overlayColor.value,style:overlayStyle.value,distortion:distortionStrength.value,seed:0});
       const labels = ObserverOverlay.render(output.getContext("2d"), foreground.canvas, layers, {
@@ -1665,6 +1695,7 @@ window.ObserverForeground = (() => {
 
     function updateEditingControls() {
       const enabled = editingEnabled(), selected = selectedEntry();
+      randomEffects.disabled=!retained;
       deleteSelected.disabled = !enabled || !selected;
       resetBoxes.disabled = !retained || !editorState;
       resetFragments.disabled=!retained||!fragmentEditState;
@@ -1959,16 +1990,41 @@ window.ObserverForeground = (() => {
     strokeWidth.addEventListener("change", renderOverlay);
     overlayColor.addEventListener("change", renderOverlay);
     overlayStyle.addEventListener("change", renderOverlay);
-    for(const id of ['fragmentOn','fragmentMode','fragmentStyle','foregroundTextOn','foregroundTextStyle','textLinks']) foregroundControls[id].addEventListener('change',renderOverlay);
+    for(const id of ['fragmentOn','fragmentMode','fragmentStyle','foregroundTextOn','foregroundTextStyle','textLinks','foregroundTextColor']) foregroundControls[id].addEventListener('change',renderOverlay);
     foregroundControls.shuffleTextLayout.addEventListener('click',()=>{
       if(!retained||foregroundControls.foregroundTextOn.value!=='On')return;
       textLayoutRevision++;renderOverlay();
+    });
+    foregroundControls.foregroundTextContent.addEventListener('input',renderOverlay);
+    randomEffects.addEventListener('click',()=>{
+      if(!retained)return;
+      cancelBoxDrag();
+      const rand=()=>{visualRandomState=(Math.imul(1664525,visualRandomState)+1013904223)>>>0;return visualRandomState/4294967296;};
+      const pick=values=>values[Math.floor(rand()*values.length)],range=(a,b)=>Math.round(a+rand()*(b-a));
+      const set=(el,value)=>{el.value=String(value);const label=el.parentElement.querySelector('output');if(label)label.value=el.value;};
+      set(overlayColor,pick(['#0050FF','#F44336','#00AA64','#FFCC00'].filter(c=>c!==overlayColor.value)));
+      set(strokeWidth,pick(['Thin','Medium','Thick']));set(overlayStyle,pick(['VECTOR','INK BLEED','SCAN']));set(distortionStrength,range(15,70));distortionValue.value=distortionStrength.value;
+      set(baseFilter,pick(['Original','XRay']));set(xrayHue,range(0,360));set(xraySaturation,range(35,95));set(xrayLightness,range(40,72));xrayInvert.checked=rand()<.35;
+      effectLayers.forEach((layer,i)=>{
+        set(layer.select,i===0?pick(['Noise','CRT','Glitch','Wave','Streak','Glow']):rand()<.35?pick(['Noise','CRT','Glitch','Wave','Streak','Glow']):'None');
+        set(layer.strength,range(12,55));set(layer.hue,range(0,360));set(layer.saturation,range(50,95));set(layer.lightness,range(40,75));set(layer.position,range(10,90));
+      });
+      set(vignette,range(-45,50));
+      const f=foregroundControls,manual=fragmentEditState&&JSON.stringify(fragmentEditState.entries)!==JSON.stringify(fragmentEditState.automatic);
+      // Protect edited geometry and deleted records: do not randomize the controls
+      // that would regenerate it. Other fragment styling can still vary.
+      if(!manual){set(f.fragmentOn,rand()<.5?'On':'Off');set(f.fragmentCount,range(15,55));set(f.fragmentMode,pick(['Turbulence','Rotate','Ripple']));set(f.fragmentDisplacement,range(20,70));set(f.fragmentScale,range(10,55));}
+      else set(f.fragmentOn,'On');
+      set(f.fragmentStyle,pick(['Original','Pencil']));set(f.fragmentHue,range(0,360));set(f.fragmentSaturation,range(30,100));set(f.fragmentLightness,range(35,70));set(f.pencilStrength,range(40,85));
+      set(f.foregroundTextOn,rand()<.7?'On':'Off');set(f.foregroundTextCount,range(15,55));set(f.foregroundTextDisplacement,range(20,80));set(f.foregroundTextSize,range(65,145));set(f.foregroundTextColor,pick(['#0050FF','#F44336','#00AA64','#FFCC00','#000000','#FFFFFF','#808080']));set(f.foregroundTextStyle,pick(['Float','Stretch']));set(f.foregroundTextStrength,range(20,70));
+      textLayoutRevision=range(1,1000000);
+      renderOverlay();
     });
     baseFilter.addEventListener("change", renderOverlay);
     for(const layer of effectLayers) layer.select.addEventListener("change",renderOverlay);
     xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStrength'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
+    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
       slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
