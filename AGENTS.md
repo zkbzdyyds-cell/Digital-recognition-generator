@@ -25,7 +25,7 @@
 
 ## 当前开发顺序
 
-- Build 02.3、02.3.1、02.3.2、02.4：已完成；Build 02.5：已完成；Build 02.6 已完成；Build 02.6.1 已完成；Build 02.6.2 已完成；当前 Build 02.7.1 追加：独立碎片对比度及五种内部加权视觉母版的审美约束随机；母版不得新增前台 UI。
+- Build 02.3、02.3.1、02.3.2、02.4：已完成；Build 02.5：已完成；Build 02.6 已完成；Build 02.6.1 已完成；Build 02.6.2 已完成；当前 Build 02.7.1 追加：Unicode 自定义标签、自适应条带、IndexedDB 个人模板与四槽静态官方预设入口；随机母版仍不得显示。
 - 本轮停止在 Build 02.7.1，完成后等待验收。
 - 预留法语前景文字：Nous sommes seuls, sans excuses. C'est ce que j'exprimerai en disant que l'homme est condamné à être libre.
 - 自动检测缓存与手动编辑副本分开，拖删只改编辑状态；样式和词语变化保留编辑，新图、结构或焦点变化重新生成。

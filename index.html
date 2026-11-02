@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>IMAGE OBSERVER · 构建 02.7.1</title>
   <style>
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2?v=027") format("woff2"); font-weight: 300; font-display: swap; }
@@ -33,6 +33,16 @@
     .runaway-settings section { min-width:0; }
     .runaway-settings .control { margin-top:10px; }
     #shuffleTextLayout { margin-top:14px; padding:8px 12px; border:1px solid #b9c6d9; border-radius:6px; background:#fff; color:inherit; cursor:pointer; }
+    .preset-area { margin-top:14px; font-size:13px; }
+    .preset-area summary { cursor:pointer; }
+    .preset-area h3 { font-size:13px; margin:16px 0 10px; }
+    .preset-area button { padding:6px 9px; border:1px solid #b9c6d9; border-radius:6px; background:#fff; color:inherit; cursor:pointer; }
+    .template-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; max-height:370px; overflow:auto; }
+    .template-card { min-width:0; padding:8px; border:1px solid #dfe4eb; border-radius:8px; background:#fff; }
+    .template-card img { width:100%; height:100px; object-fit:contain; background:#f4f5f7; }
+    .template-card .apply-template { width:100%; overflow-wrap:anywhere; }
+    .template-card .actions { margin-top:6px; gap:5px; }
+    #templateStatus { overflow-wrap:anywhere; }
     .effect-layers { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 18px; margin-top: 18px; font-size: 13px; }
     .effect-layer { min-width: 0; }
     .effect-layer select { width: 100%; min-width: 0; }
@@ -94,6 +104,14 @@
     </label>
     <button id="randomEffects" type="button" disabled><svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="3" fill="none" stroke="currentColor"/><g fill="currentColor"><circle cx="6" cy="6" r="1.2"/><circle cx="14" cy="6" r="1.2"/><circle cx="10" cy="10" r="1.2"/><circle cx="6" cy="14" r="1.2"/><circle cx="14" cy="14" r="1.2"/></g></svg>随机效果</button>
     <span class="edit-hint">有手动碎片编辑时，保留其数量和变换设置。</span>
+    <section class="preset-area" aria-label="预设效果">
+      <details><summary>预设效果</summary>
+        <h3>官方预设</h3><div id="officialCards" class="template-cards"></div>
+        <h3>我的模板</h3><div class="actions"><button id="saveTemplate" type="button">保存当前效果</button><button id="importTemplate" type="button">导入模板</button><input id="templateFile" type="file" accept="application/json,.json" hidden></div>
+        <p class="edit-hint">模板仅存于当前浏览器。清除网站数据或更换设备可能丢失，请导出 JSON 备份。缩略图包含画面内容，仅用于预览。</p>
+        <p id="templateStatus" role="status" aria-live="polite"></p><div id="personalCards" class="template-cards"></div>
+      </details>
+    </section>
     <label class="structure" for="structure"><span>结构强度</span><input id="structure" type="range" min="0" max="100" step="1" value="45"><output id="structureValue" for="structure">45</output></label>
     <div class="actions">
       <button id="resetFocus" type="button" disabled>恢复自动焦点</button>
@@ -131,6 +149,9 @@
       </label>
       <button id="shuffleWord" type="button" disabled>换一个</button>
     </div>
+    <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 中英文 · 最多32个字符
+      <input id="customText" type="text" autocomplete="off" spellcheck="false" placeholder="输入中英文标签">
+    </label>
     <label class="structure" id="distortionControl" for="distortionStrength" hidden><span>失真强度</span><input id="distortionStrength" type="range" min="0" max="100" step="1" value="45"><output id="distortionValue" for="distortionStrength">45</output></label>
     <div class="controls">
       <label class="control" for="baseFilter">底图滤镜<select id="baseFilter"><option value="Original">原图</option><option value="XRay">X光滤镜</option></select></label>
@@ -182,9 +203,6 @@
 <button id="shuffleTextLayout" type="button" disabled>换一组布局</button>
 </div></section>
     </div>
-    <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
-      <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="输入自定义英文文字">
-    </label>
     <div class="edit-controls">
       <label class="control" for="editBoxes">编辑方框
         <select id="editBoxes">
@@ -220,6 +238,8 @@
       </section>
     </div>
   </main>
+  <script src="official-presets.js"></script>
+  <script src="templates.js"></script>
   <script>
 /* Detection Build 02.2: local, deterministic CPU image analysis; no models or network. */
 (function (root) {
@@ -940,6 +960,7 @@ window.ObserverForeground = (() => {
       return {source:[sx,sy,sw,sh],position:[x,y],size:[dw,dh],angle:0};
     });
   }
+  const stripMeasure=document.createElement('canvas').getContext('2d');
   const heightSafe=font=>Math.max(16,parseInt(font.split(' ')[1],10)||32);
   function textPlan(width,height,settings) {
     if(!settings.on)return [];
@@ -953,10 +974,39 @@ window.ObserverForeground = (() => {
       const side=i%2===0,top=i%7===0;
       const x=width*(top?(.05+r(0)*.45):side?(.015+r(0)*.10):(.68+r(0)*.20));
       const y=height*(top?(.03+r(1)*.14):(.10+r(1)*.83));
-      return {text:units[i%units.length],position:[x+(r(9)-.5)*width*.08*drift,y+(r(10)-.5)*height*.08*drift],angle:0,
+      const word={text:units[i%units.length],position:[x+(r(9)-.5)*width*.08*drift,y+(r(10)-.5)*height*.08*drift],angle:0,
         font:`300 ${Math.round(size*(.85+.35*r(3)))}px "Observer Inter Light", sans-serif`,
         echo:r(4)<.28,clip:r(5)<.25,width:width*(.18+.35*r(6)),
         large,stretch:large?[.65+(1.5+2*r(7))*power,.70-.48*power]:[1,1],opacity:.55+.38*r(8),blur:large?.3+1.3*power:0};
+      if(large) {
+        const content=String(settings.content??SOURCE).replace(/\s+/g,' ').trim();
+        const tokens=content.match(/[\p{Script=Han}]|[^\s\p{Script=Han}]+/gu)||[];
+        const start=Math.floor(r(11)*tokens.length),han=/\p{Script=Han}/u.test(tokens[start]||'');
+        const tier=r(12)<.5?0:r(12)<.85?1:2;
+        const targets=han?[2,4,6]:[5,10,18],target=Math.max(han?2:4,Math.round(targets[tier]*100/Math.max(100,Number(settings.size)||100)));
+        let candidate='';
+        for(let n=0;n<tokens.length;n++) {
+          const token=tokens[(start+n)%tokens.length];
+          candidate+=(candidate&&!han?' ':'')+token;
+          if(Array.from(candidate).length>=target)break;
+        }
+        word.text=Array.from(candidate).slice(0,target).join('').trim()||content;
+        word.font=`300 ${Math.max(12,Math.round(size*(.85+.35*r(3))))}px "Observer Inter Light", "Microsoft YaHei", "PingFang SC", sans-serif`;
+        word.position[0]=Math.max(2,Math.min(width*(side||top?.48:.76),word.position[0]));
+        stripMeasure.font=word.font;
+        let measured=Math.max(1,stripMeasure.measureText(word.text).width);
+        const available=Math.max(1,Math.min(width*.34,width-word.position[0]-3));
+        if(available/measured<.8) {
+          const fontSize=Math.max(8,Math.floor(heightSafe(word.font)*available/(measured*.8)));
+          word.font=word.font.replace(/\d+px/,`${fontSize}px`);stripMeasure.font=word.font;measured=Math.max(1,stripMeasure.measureText(word.text).width);
+        }
+        word.stretch[0]=Math.min(word.stretch[0],available/measured);
+        word.visibleWidth=measured*word.stretch[0];word.width=available;
+        const metrics=stripMeasure.measureText(word.text),ascent=(metrics.actualBoundingBoxAscent||heightSafe(word.font))*word.stretch[1];
+        word.position[1]=Math.max(ascent+2,Math.min(height-4,word.position[1]));
+        word.clip=false;
+      }
+      return word;
     });
   }
   function render(original,base,layers,revision,fragmentSettings,textSettings,frameOptions={}) {
@@ -999,7 +1049,7 @@ window.ObserverForeground = (() => {
         ctx.save();ctx.translate(...word.position);ctx.rotate(word.angle);
         ctx.font=word.font;ctx.textBaseline='alphabetic';ctx.globalAlpha=word.opacity;
         // Cap each strip to its side of the image, preserving a stable central gap.
-        if(word.large){ctx.beginPath();ctx.rect(-2,-heightSafe(word.font),w*.32,heightSafe(word.font)*1.8);ctx.clip();}
+        if(word.large){ctx.beginPath();ctx.rect(-2,-heightSafe(word.font),word.width+4,heightSafe(word.font)*1.8);ctx.clip();}
         ctx.scale(...word.stretch);
         if(word.clip){ctx.beginPath();ctx.rect(-2,-40,word.width,55);ctx.clip();}
         if(word.large){ctx.filter=`blur(${word.blur}px)`;ctx.globalAlpha=word.opacity*.25;ctx.fillStyle=textSettings.color||'#000000';ctx.fillText(word.text,10,1);ctx.filter='none';}
@@ -1062,9 +1112,8 @@ window.ObserverForeground = (() => {
   }
 
   function cleanCustomText(text) {
-    return String(text == null ? '' : text).slice(0, 256)
-      .replace(/[^A-Za-z '\-]+/g, ' ').toUpperCase()
-      .replace(/\s+/g, ' ').trim().slice(0, CUSTOM_TEXT_MAX_LENGTH).trim();
+    return Array.from(String(text == null ? '' : text).replace(/[\u0000-\u001f\u007f]/g,' ').replace(/[a-z]/g,c=>c.toUpperCase()))
+      .slice(0,CUSTOM_TEXT_MAX_LENGTH).join('').trim();
   }
 
   function strokePixels(value) {
@@ -1089,8 +1138,8 @@ window.ObserverForeground = (() => {
       context.textAlign = 'left';
       context.textBaseline = 'alphabetic';
       while (size >= 8) {
-        font = style === 'SCAN' ? `500 ${size}px "Observer Inter Medium", Arial, sans-serif`
-          : `300 ${size}px "Observer Inter Light", Arial, sans-serif`;
+        font = style === 'SCAN' ? `500 ${size}px "Observer Inter Medium", Arial, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif`
+          : `300 ${size}px "Observer Inter Light", Arial, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif`;
         context.font = font;
         metrics = context.measureText(text);
         // Measure ink rather than only advance width. The fallback supports
@@ -2086,15 +2135,15 @@ window.ObserverForeground = (() => {
       });
     });
     labelMode.addEventListener("change", renderOverlay);
-    customText.addEventListener("input", () => {
-      // Synchronous local updates preserve a trailing space while typing a
-      // phrase, and preserve the caret when editing in the middle of a word.
-      const sanitize = value => value.replace(/[^A-Za-z '\-]/g, "").toUpperCase().slice(0,32);
-      const caret = sanitize(customText.value.slice(0,customText.selectionStart)).length;
-      customText.value = sanitize(customText.value);
-      customText.setSelectionRange(caret,caret);
-      renderOverlay();
-    });
+    function updateCustomLabel(event) {
+      if(event&&event.isComposing)return;
+      const value=customText.value,caret=customText.selectionStart;
+      const sanitize=value=>Array.from(value.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/[a-z]/g,c=>c.toUpperCase())).slice(0,32).join('');
+      customText.value=sanitize(value);const offset=sanitize(value.slice(0,caret)).length;
+      customText.setSelectionRange(offset,offset);renderOverlay();
+    }
+    customText.addEventListener('input',updateCustomLabel);
+    customText.addEventListener('compositionend',updateCustomLabel);
     shuffleWord.addEventListener("click", () => {
       if (!retained || !cachedLayers || labelMode.value !== "Emotion Pool") return;
       wordState = ObserverOverlay.shuffleWord(wordState);
@@ -2155,6 +2204,34 @@ window.ObserverForeground = (() => {
       dropZone.classList.remove("dragging");
       showImage(event.dataTransfer.files[0]);
     });
+    const recipeControls=[strokeWidth,overlayColor,overlayStyle,labelMode,distortionStrength,customText,baseFilter,xrayHue,xraySaturation,xrayLightness,xrayInvert,baseContrast,vignette,
+      ...effectLayers.flatMap(layer=>[layer.select,layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position]),
+      ...Object.entries(foregroundControls).filter(([id])=>id!=='shuffleTextLayout').map(([,control])=>control)];
+    function captureRecipe() {
+      return {version:1,controls:Object.fromEntries(recipeControls.map(el=>[el.id,el.type==='checkbox'?el.checked:el.type==='range'?Number(el.value):el.value])),
+        state:{visualRandomState,textLayoutRevision,wordState:{...wordState},fragmentPolicy:fragmentRandomPolicy?{cx:fragmentRandomPolicy.cx/original.width,cy:fragmentRandomPolicy.cy/original.height,rx:fragmentRandomPolicy.rx/original.width,ry:fragmentRandomPolicy.ry/original.height}:null}};
+    }
+    function applyRecipe(recipe) {
+      if(!retained)throw new Error('请先上传图片，再应用模板。');
+      cancelBoxDrag();
+      const manual=fragmentEditState&&JSON.stringify(fragmentEditState.entries)!==JSON.stringify(fragmentEditState.automatic);
+      const protectedIds=new Set(['fragmentOn','fragmentCount','fragmentMode','fragmentDisplacement','fragmentScale']);
+      for(const el of recipeControls) {
+        if(manual&&protectedIds.has(el.id))continue;
+        if(el.type==='checkbox')el.checked=recipe.controls[el.id];else el.value=String(recipe.controls[el.id]);
+        const counter=el.parentElement.querySelector('output');if(counter)counter.value=el.value;
+      }
+      visualRandomState=recipe.state.visualRandomState;textLayoutRevision=recipe.state.textLayoutRevision;wordState={...recipe.state.wordState};
+      if(!manual) {
+        const p=recipe.state.fragmentPolicy;
+        fragmentRandomPolicy=p?{cx:p.cx*original.width,cy:p.cy*original.height,rx:p.rx*original.width,ry:p.ry*original.height}:null;
+        fragmentGeometryKey=null;
+      }
+      renderOverlay();
+      return manual?'已应用；保留手动碎片编辑，未覆盖其开关、数量和变换参数。':'已应用模板。';
+    }
+    ObserverTemplates.init({controls:recipeControls,capture:captureRecipe,apply:applyRecipe,
+      thumbnail:()=>{if(!retained)throw new Error('请先上传图片，再保存模板。');renderOverlay();return output;},words:ObserverOverlay.EMOTION_POOL});
     updateEditingControls();
   </script>
 </body>
