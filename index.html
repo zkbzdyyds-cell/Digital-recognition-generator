@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.6</title>
+  <title>IMAGE OBSERVER · 构建 02.6.1</title>
   <style>
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2") format("woff2"); font-weight: 300; font-display: swap; }
     @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
@@ -29,6 +29,8 @@
     .structure { display: grid; grid-template-columns: auto 1fr 28px; gap: 14px; align-items: center; margin: 18px 0 0; font-size: 13px; }
     .structure input { min-width: 0; width: 100%; accent-color: #0050ff; }
     .structure output { text-align: right; color: #687586; font-variant-numeric: tabular-nums; }
+    .base-parameters { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 0 20px; }
+    .invert-control { align-self: end; margin-top: 18px; font-size: 13px; }
     #distortionControl { max-width: 460px; margin-top: 14px; }
     .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .panel { min-width: 0; border: 1px solid #dfe4eb; border-radius: 10px; background: #fff; overflow: hidden; }
@@ -71,7 +73,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.6</h1>
+      <h1>IMAGE OBSERVER · 构建 02.6.1</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -119,9 +121,16 @@
       <button id="shuffleWord" type="button" disabled>换一个</button>
     </div>
     <div class="controls">
-      <label class="control" for="baseFilter">底图滤镜<select id="baseFilter"><option value="Original">原图</option><option value="XRay">单色 X 光</option></select></label>
-      <label class="control" id="xrayColorControl" for="xrayColor" hidden>X 光颜色<select id="xrayColor"><option value="Blue">蓝色</option><option value="Red">红色</option><option value="Yellow">黄色</option><option value="Green">绿色</option><option value="Black">黑色</option></select></label>
+      <label class="control" for="baseFilter">底图滤镜<select id="baseFilter"><option value="Original">原图</option><option value="XRay">X光滤镜</option></select></label>
+      <label class="control" for="baseEffect">底图效果<select id="baseEffect"><option value="None">无</option><option value="Noise">彩色噪点</option><option value="CRT">复古电视机竖纹</option><option value="Glitch">电子扫描故障</option></select></label>
     </div>
+    <div id="xrayControls" class="base-parameters" hidden>
+      <label class="structure" for="xrayHue"><span>色相</span><input id="xrayHue" type="range" min="0" max="360" value="210"><output>210</output></label>
+      <label class="structure" for="xraySaturation"><span>饱和度</span><input id="xraySaturation" type="range" min="0" max="100" value="80"><output>80</output></label>
+      <label class="structure" for="xrayLightness"><span>明度</span><input id="xrayLightness" type="range" min="0" max="100" value="65"><output>65</output></label>
+      <label class="invert-control"><input id="xrayInvert" type="checkbox">反色</label>
+    </div>
+    <label class="structure" id="effectStrengthControl" for="effectStrength" hidden><span>强度</span><input id="effectStrength" type="range" min="0" max="100" value="20"><output>20</output></label>
     <label class="structure" for="vignette"><span>暗角</span><input id="vignette" type="range" min="-100" max="100" step="1" value="0"><output id="vignetteValue" for="vignette">0</output></label>
     <label class="structure" id="distortionControl" for="distortionStrength" hidden><span>失真强度</span><input id="distortionStrength" type="range" min="0" max="100" step="1" value="45"><output id="distortionValue" for="distortionStrength">45</output></label>
     <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
@@ -575,26 +584,33 @@
 
   </script>
   <script>
-/* Image Base: original -> monochrome mapping -> vignette. Never used by Detection. */
+/* Image Base: original -> HSL scan -> procedural effect -> vignette. Never used by Detection. */
 window.ObserverImageBase = (() => {
-  const palettes = {
-    Blue: [[2,5,25],[4,35,113],[0,146,199],[204,255,255]],
-    Red: [[22,2,6],[109,10,27],[223,64,64],[255,229,217]],
-    Yellow: [[20,14,1],[100,68,2],[221,178,20],[255,253,206]],
-    Green: [[1,18,13],[0,83,53],[11,177,116],[211,255,231]],
-    Black: [[3,3,3],[53,53,53],[151,151,151],[248,248,248]]
+  const noise = n => {
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    return (n ^ (n >>> 16)) >>> 0;
   };
-  const filtered = document.createElement('canvas'), result = document.createElement('canvas');
-  let imageKey = null, tones = null, filterKey = null, resultKey = null;
-  function render(source, revision, mode, color, vignette) {
+  function hsl(h, s, l) {
+    const a=s*Math.min(l,1-l), channel=n=>{
+      const k=(n+h/30)%12;
+      return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1))));
+    };
+    return [channel(0),channel(8),channel(4)];
+  }
+  const filtered = document.createElement('canvas'), effected = document.createElement('canvas'), result = document.createElement('canvas');
+  let imageKey = null, tones = null, filterKey = null, effectKey = null, resultKey = null;
+  function render(source, revision, mode, settings, vignette) {
     const w = source.width, h = source.height;
     const key = `${revision}:${w}:${h}`;
     if (imageKey !== key) {
-      imageKey = key; tones = null; filterKey = resultKey = null;
-      filtered.width = result.width = w; filtered.height = result.height = h;
+      imageKey = key; tones = null; filterKey = effectKey = resultKey = null;
+      filtered.width = effected.width = result.width = w; filtered.height = effected.height = result.height = h;
     }
     const amount = Math.max(-100, Math.min(100, Number(vignette) || 0));
-    if (mode !== 'XRay' && !amount) return source;
+    const {hue=210, saturation=80, lightness=65, invert=false, effect='None', strength=20} = settings || {};
+    const power = Math.max(0,Math.min(100,Number(strength)||0))/100;
+    if (mode !== 'XRay' && !amount && (effect === 'None' || !power)) return source;
     let base = source;
     if (mode === 'XRay') {
       if (!tones) {
@@ -614,13 +630,16 @@ window.ObserverImageBase = (() => {
         }
         smooth.width = smooth.height = 1;
       }
-      const chosen = palettes[color] ? color : 'Blue';
+      const chosen = JSON.stringify([hue,saturation,lightness,invert]);
       if (filterKey !== chosen) {
-        const ctx = filtered.getContext('2d'), data = ctx.createImageData(w,h), stops = palettes[chosen];
+        const ctx = filtered.getContext('2d'), data = ctx.createImageData(w,h);
         const lut = new Uint8Array(256*3);
         for (let n=0;n<256;n++) {
-          const t=n/255*3, band=Math.min(2,Math.floor(t)), f=t-band;
-          for(let c=0;c<3;c++) lut[n*3+c]=Math.round(stops[band][c]*(1-f)+stops[band+1][c]*f);
+          const tone=(invert?255-n:n)/255;
+          // Gamma lifts midtones without clipping a broad range of highlights.
+          const l=.015+.965*Math.pow(tone,Math.pow(2,(50-Number(lightness))/35));
+          const rgb=hsl((Number(hue)-15*tone+360)%360, Number(saturation)/100*(1-.7*l*l*l),l);
+          lut.set(rgb,n*3);
         }
         for(let j=0,i=0;j<tones.length;j++,i+=4) {
           const t=tones[j]*3;
@@ -630,7 +649,55 @@ window.ObserverImageBase = (() => {
       }
       base=filtered;
     }
-    const nextKey=`${mode}:${filterKey}:${amount}`;
+    const baseKey=mode==='XRay'?filterKey:'Original';
+    const nextEffectKey=JSON.stringify([baseKey,effect,power]);
+    if(effect!=='None' && power) {
+      if(effectKey!==nextEffectKey) {
+        const ctx=effected.getContext('2d');ctx.clearRect(0,0,w,h);ctx.drawImage(base,0,0);
+        // Fixed procedural noise: one bounded pass only when its parameters change.
+        if(effect==='Noise') {
+          const data=ctx.getImageData(0,0,w,h), a=data.data, amplitude=64*power;
+          for(let i=0;i<a.length;i+=4) {
+            const n=noise((i>>>2)^0x48fa32b1);
+            for(let c=0;c<3;c++) a[i+c]=Math.max(0,Math.min(255,a[i+c]+(((n>>>(c*8))&255)/127.5-1)*amplitude));
+          }
+          ctx.putImageData(data,0,0);
+        } else if(effect==='CRT') {
+          // Fine, pixel-scale vertical phosphor texture; no large dark bars.
+          for(let x=0;x<w;x+=3) {
+            ctx.fillStyle=`rgba(0,0,0,${.26*power})`;ctx.fillRect(x,0,1,h);
+            ctx.fillStyle=`rgba(210,235,255,${.13*power})`;ctx.fillRect(x+1,0,1,h);
+          }
+        } else if(effect==='Glitch') {
+          // Sparse strips sample the immutable pre-effect base, never previous damage.
+          for(let n=0;n<Math.ceil(26*power);n++) {
+            const seed=noise(n+741), y=seed%h;
+            const bh=Math.min(h-y,1+Math.floor((noise(seed)%1000)/1000*h*.018*power));
+            const dx=Math.round(((noise(seed+1)%2001)/1000-1)*w*.06*power);
+            const dy=Math.round(((noise(seed+2)%2001)/1000-1)*h*.008*power);
+            ctx.drawImage(base,0,y,w,bh,dx,Math.max(0,y+dy),w,bh);
+            if(n%3===0) {
+              const pixels=base.getContext('2d').getImageData(0,y,w,bh), src=pixels.data, copy=new Uint8ClampedArray(src);
+              const split=1+Math.round(4*power);
+              for(let row=0;row<bh;row++) for(let x=0;x<w;x++) {
+                const i=(row*w+x)*4;
+                src[i]=copy[(row*w+Math.max(0,x-split))*4];
+                src[i+2]=copy[(row*w+Math.min(w-1,x+split))*4+2];
+              }
+              ctx.putImageData(pixels,0,y);
+            }
+            if(n%4===0) {
+              const sy=Math.min(h-1,y+bh), stretch=1+Math.floor(5*power);
+              ctx.globalAlpha=.4*power;ctx.drawImage(base,0,sy,w,1,dx,sy,w,stretch);ctx.globalAlpha=1;
+            }
+            ctx.fillStyle=`rgba(200,235,255,${.12*power})`;ctx.fillRect(0,y,w,1);
+          }
+        }
+        effectKey=nextEffectKey;
+      }
+      base=effected;
+    }
+    const nextKey=JSON.stringify([baseKey,effect,power,amount]);
     if(resultKey!==nextKey) {
       const ctx=result.getContext('2d');ctx.clearRect(0,0,w,h);ctx.drawImage(base,0,0);
       if(amount) {
@@ -1125,8 +1192,12 @@ window.ObserverImageBase = (() => {
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
     const baseFilter = document.getElementById("baseFilter");
-    const xrayColor = document.getElementById("xrayColor");
-    const xrayColorControl = document.getElementById("xrayColorControl");
+    const baseEffect = document.getElementById("baseEffect");
+    const xrayHue = document.getElementById("xrayHue");
+    const xraySaturation = document.getElementById("xraySaturation");
+    const xrayLightness = document.getElementById("xrayLightness");
+    const xrayInvert = document.getElementById("xrayInvert");
+    const effectStrength = document.getElementById("effectStrength");
     const vignette = document.getElementById("vignette");
     const vignetteValue = document.getElementById("vignetteValue");
     const distortionControl = document.getElementById("distortionControl");
@@ -1244,11 +1315,15 @@ window.ObserverImageBase = (() => {
     // call renderOutput(), ObserverDetector.layers(), or the detector's RNG.
     function renderOverlay() {
       updateLabelControls();
-      xrayColorControl.hidden = baseFilter.value !== "XRay";
+      document.getElementById("xrayControls").hidden = baseFilter.value !== "XRay";
+      document.getElementById("effectStrengthControl").hidden = baseEffect.value === "None";
       if (!retained || !cachedLayers) return;
       // Empty edited arrays are valid: deleting every box leaves the base image.
       const layers = editorState ? ObserverBoxEditor.layers(editorState) : cachedLayers;
-      const base = ObserverImageBase.render(original, generation, baseFilter.value, xrayColor.value, vignette.value);
+      const base = ObserverImageBase.render(original, generation, baseFilter.value, {
+        hue:xrayHue.value, saturation:xraySaturation.value, lightness:xrayLightness.value,
+        invert:xrayInvert.checked, effect:baseEffect.value, strength:effectStrength.value
+      }, vignette.value);
       const labels = ObserverOverlay.render(output.getContext("2d"), base, layers, {
         strokeWidth: strokeWidth.value, labelMode: labelMode.value,
         color: overlayColor.value, style: overlayStyle.value, seed: 0,
@@ -1566,10 +1641,11 @@ window.ObserverImageBase = (() => {
     overlayColor.addEventListener("change", renderOverlay);
     overlayStyle.addEventListener("change", renderOverlay);
     baseFilter.addEventListener("change", renderOverlay);
-    xrayColor.addEventListener("change", renderOverlay);
+    baseEffect.addEventListener("change", renderOverlay);
+    xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    vignette.addEventListener("input", () => {
-      vignetteValue.value = vignette.value;
+    for(const slider of [vignette,xrayHue,xraySaturation,xrayLightness,effectStrength]) slider.addEventListener("input", () => {
+      slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
     });
@@ -1620,7 +1696,7 @@ window.ObserverImageBase = (() => {
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_6_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_6_1_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
