@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.4</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>IMAGE OBSERVER · 构建 02.5</title>
   <style>
-    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #17202c; background: #f4f5f7; }
+    @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2") format("woff2"); font-weight: 300; font-display: swap; }
+    @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+    :root { color-scheme: light; font-family: "Observer Inter Light", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; font-synthesis: none; color: #17202c; background: #f4f5f7; }
     * { box-sizing: border-box; }
     body { margin: 0; }
     main { max-width: 1320px; margin: 0 auto; padding: 44px 32px 32px; }
@@ -27,6 +29,7 @@
     .structure { display: grid; grid-template-columns: auto 1fr 28px; gap: 14px; align-items: center; margin: 18px 0 0; font-size: 13px; }
     .structure input { min-width: 0; width: 100%; accent-color: #0050ff; }
     .structure output { text-align: right; color: #687586; font-variant-numeric: tabular-nums; }
+    #distortionControl { max-width: 460px; margin-top: 14px; }
     .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .panel { min-width: 0; border: 1px solid #dfe4eb; border-radius: 10px; background: #fff; overflow: hidden; }
     h2 { margin: 0; padding: 16px 19px; font-size: 13px; font-weight: 550; border-bottom: 1px solid #edf0f4; }
@@ -68,7 +71,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.4</h1>
+      <h1>IMAGE OBSERVER · 构建 02.5</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -102,7 +105,8 @@
       <label class="control" for="overlayStyle">标注风格
         <select id="overlayStyle">
           <option value="VECTOR" selected>清晰矢量</option>
-          <option value="INK BLEED">溢墨印刷</option>
+          <option value="INK BLEED">柔性溢墨</option>
+          <option value="SCAN">数字扫描失真</option>
         </select>
       </label>
       <label class="control" for="labelMode">标签文字
@@ -114,6 +118,7 @@
       </label>
       <button id="shuffleWord" type="button" disabled>换一个</button>
     </div>
+    <label class="structure" id="distortionControl" for="distortionStrength" hidden><span>失真强度</span><input id="distortionStrength" type="range" min="0" max="100" step="1" value="45"><output id="distortionValue" for="distortionStrength">45</output></label>
     <label class="control" id="customTextField" for="customText" hidden>自定义文字 · 仅限英文 · 最多32个字符
       <input id="customText" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="输入自定义英文文字">
     </label>
@@ -565,7 +570,7 @@
 
   </script>
   <script>
-/* Build 02.4 Overlay: cached geometry, independent words and seeded ink texture. */
+/* Build 02.5 Overlay: cached geometry, independent words and seeded local styles. */
 (function (root) {
   'use strict';
   const EMOTION_POOL = Object.freeze([
@@ -580,7 +585,7 @@
   const CUSTOM_TEXT_MAX_LENGTH = 32;
   const COLORS = Object.freeze(['#0050FF', '#F44336', '#00AA64', '#FFCC00']);
   // One bounded, color-independent mask cache: toggles reuse texture, not Detection.
-  let inkCache = null;
+  let inkCache = null, scanCache = null;
   const nextRandomState = state => (Math.imul(1664525, Number(state) >>> 0) + 1013904223) >>> 0;
 
   function createWordState(seed = 0) {
@@ -626,7 +631,7 @@
       * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
   }
 
-  function layoutLabels(context, width, height, layers, text, strokeWidth = 'Medium') {
+  function layoutLabels(context, width, height, layers, text, strokeWidth = 'Medium', style = 'VECTOR') {
     text = cleanCustomText(text);
     if (!text || Math.min(width, height) < 8) return [];
     const margin = 2, gap = Math.max(4, strokePixels(strokeWidth) + 2);
@@ -638,7 +643,8 @@
       context.textAlign = 'left';
       context.textBaseline = 'alphabetic';
       while (size >= 8) {
-        font = `${size}px Arial, Helvetica, sans-serif`;
+        font = style === 'SCAN' ? `500 ${size}px "Observer Inter Medium", Arial, sans-serif`
+          : `300 ${size}px "Observer Inter Light", Arial, sans-serif`;
         context.font = font;
         metrics = context.measureText(text);
         // Measure ink rather than only advance width. The fallback supports
@@ -793,6 +799,11 @@
       cache.key = key;
       cache.color = null;
     }
+    return tintMask(cache, width, height, color);
+  }
+
+  // Color changes reuse the same alpha texture for both raster styles.
+  function tintMask(cache, width, height, color) {
     if (cache.color !== color) {
       const tint = cache.tinted.getContext('2d');
       tint.clearRect(0, 0, width, height);
@@ -805,6 +816,83 @@
       cache.color = color;
     }
     return cache.tinted;
+  }
+
+  function scanOverlay(width, height, layers, labels, stroke, color, seed, strength) {
+    const key = JSON.stringify([width, height, layers, labels, stroke, seed, strength]);
+    if (!scanCache) scanCache = {source: document.createElement('canvas'),
+      mask: document.createElement('canvas'), tinted: document.createElement('canvas')};
+    const cache = scanCache;
+    if (cache.key !== key) {
+      for (const canvas of [cache.source, cache.mask, cache.tinted]) {
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+      }
+      const source = cache.source.getContext('2d', {willReadFrequently: true});
+      const target = cache.mask.getContext('2d');
+      source.clearRect(0, 0, width, height);
+      target.clearRect(0, 0, width, height);
+      source.fillStyle = '#fff';
+      const areas = [];
+      paintOverlay(source, width, height, layers, labels, stroke, areas);
+      const amount = strength / 100;
+      const maxShift = Math.ceil(6 * amount), trail = Math.ceil(3 * amount);
+      const reach = maxShift + trail + 1;
+      if (!strength) target.drawImage(cache.source, 0, 0);
+      else for (const area of areas) {
+        // Read only short edge bands / text patches. Every patch samples the
+        // immutable source using global coordinates, so intersections have no seams.
+        const x = Math.max(0, Math.floor(area[0]) - reach);
+        const y = Math.max(0, Math.floor(area[1]) - 2);
+        const right = Math.min(width, Math.ceil(area[2]) + reach);
+        const bottom = Math.min(height, Math.ceil(area[3]) + 2);
+        const w = right - x, h = bottom - y;
+        if (w <= 0 || h <= 0) continue;
+        const sx = Math.max(0, x - reach - 1), sy = Math.max(0, y - 2);
+        const sw = Math.min(width, right + reach + 1) - sx;
+        const sh = Math.min(height, bottom + 2) - sy;
+        const pixels = source.getImageData(sx, sy, sw, sh).data;
+        const result = target.createImageData(w, h);
+        const sample = (gx, gy) => gx < sx || gy < sy || gx >= sx + sw || gy >= sy + sh
+          ? 0 : pixels[((gy - sy) * sw + gx - sx) * 4 + 3];
+        for (let py = 0; py < h; py++) {
+          const gy = y + py, band = Math.floor(gy / 3);
+          const shifted = inkNoise(0, band, seed ^ 0x395a1c7d) < .42 * amount;
+          const shift = shifted ? Math.round((inkNoise(1, band, seed) * 2 - 1) * maxShift) : 0;
+          const missingRow = inkNoise(2, band, seed ^ 0x164ab37f) < .035 * amount;
+          for (let px = 0; px < w; px++) {
+            const gx = x + px, cellX = Math.floor(gx / 24), cellY = Math.floor(gy / 4);
+            const jitter = inkNoise(cellX, cellY, seed ^ 0x5a9d3f21);
+            const jx = jitter < .22 * amount ? (jitter < .11 * amount ? -1 : 1) : 0;
+            const jy = inkNoise(cellX, cellY, seed ^ 0x1c7e42ad) < .14 * amount ? 1 : 0;
+            const sampleX = gx - shift - jx, sampleY = gy - jy;
+            let alpha = sample(sampleX, sampleY);
+            const dropout = missingRow || inkNoise(Math.floor(sampleX / 9),
+              Math.floor(sampleY / 2), seed ^ 0x3e1b7a95) < .13 * amount;
+            if (dropout) alpha = 0;
+            else if (alpha) {
+              const edge = Math.min(sample(sampleX-1,sampleY), sample(sampleX+1,sampleY),
+                sample(sampleX,sampleY-1), sample(sampleX,sampleY+1)) < 128;
+              const grain = inkNoise(sampleX, sampleY, seed ^ 0x72b419e3);
+              alpha = edge && grain < .16 * amount ? 0 : alpha * (1 - .08 * amount * grain);
+            }
+            // Occasional short echoes, never a uniform glow or full-image blur.
+            if (inkNoise(cellX, cellY, seed ^ 0x247c9e13) < .35 * amount) {
+              alpha = Math.max(alpha, sample(sampleX - trail, sampleY) * .18 * amount);
+            }
+            const offset = (py * w + px) * 4;
+            result.data[offset] = result.data[offset+1] = result.data[offset+2] = 255;
+            result.data[offset+3] = Math.round(alpha);
+          }
+        }
+        target.putImageData(result, x, y);
+      }
+      cache.key = key;
+      cache.color = null;
+    }
+    return tintMask(cache, width, height, color);
   }
 
   function render(context, sourceCanvas, layers, options = {}) {
@@ -826,8 +914,12 @@
       context.clearRect(0, 0, width, height);
       context.drawImage(sourceCanvas, 0, 0);
       context.fillStyle = color;
-      const labels = layoutLabels(context, width, height, layers, text, stroke);
-      if (options.style === 'INK BLEED') {
+      const labels = layoutLabels(context, width, height, layers, text, stroke, options.style);
+      if (options.style === 'SCAN') {
+        const strength = options.distortion == null ? 45 : Math.round(Number(options.distortion) || 0);
+        context.drawImage(scanOverlay(width, height, layers, labels, stroke, color,
+          Number(options.seed) >>> 0, Math.max(0, Math.min(100, strength))), 0, 0);
+      } else if (options.style === 'INK BLEED') {
         context.drawImage(inkOverlay(width, height, layers, labels, stroke, color,
           Number(options.seed) >>> 0), 0, 0);
       } else {
@@ -951,6 +1043,9 @@
     const labelMode = document.getElementById("labelMode");
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
+    const distortionControl = document.getElementById("distortionControl");
+    const distortionStrength = document.getElementById("distortionStrength");
+    const distortionValue = document.getElementById("distortionValue");
     const customText = document.getElementById("customText");
     const customTextField = document.getElementById("customTextField");
     const shuffleWord = document.getElementById("shuffleWord");
@@ -961,6 +1056,12 @@
     const selectionStatus = document.getElementById("selectionStatus");
     const outputStage = document.getElementById("outputStage");
     const editOverlay = document.getElementById("editOverlay");
+    // Start both tiny local font loads once. No Canvas labels or PNG exports
+    // are produced until these exact faces are ready (no fallback-font race).
+    const overlayFontsReady = Promise.all([
+      document.fonts.load('300 16px "Observer Inter Light"'),
+      document.fonts.load('500 16px "Observer Inter Medium"')
+    ]).then(faces => faces.every(list => list.length > 0), () => false);
     let generation = 0, retained = null, focus = null, structureTimer = null;
     let cachedLayers = null, wordState = null, pendingExport = null;
     // Automatic boxes remain untouched. Only editorState.entries can be moved
@@ -1050,6 +1151,7 @@
       customTextField.hidden = labelMode.value !== "Custom Text";
       shuffleWord.hidden = labelMode.value !== "Emotion Pool";
       shuffleWord.disabled = !retained || !cachedLayers;
+      distortionControl.hidden = overlayStyle.value !== "SCAN";
     }
 
     // Display controls consume cached pixel-coordinate boxes only. They never
@@ -1062,6 +1164,7 @@
       const labels = ObserverOverlay.render(output.getContext("2d"), original, layers, {
         strokeWidth: strokeWidth.value, labelMode: labelMode.value,
         color: overlayColor.value, style: overlayStyle.value, seed: 0,
+        distortion: distortionStrength.value,
         word: wordState && wordState.word, customText: customText.value
       });
       output.dataset.word = wordState ? wordState.word : "";
@@ -1070,6 +1173,7 @@
       output.dataset.mode = labelMode.value;
       output.dataset.color = overlayColor.value;
       output.dataset.style = overlayStyle.value;
+      output.dataset.distortion = distortionStrength.value;
       output.dataset.layers = JSON.stringify(layers);
       output.dataset.boxes = JSON.stringify([...layers.main,...layers.medium,...layers.micro]);
       downloadPNG.disabled = !!pendingExport;
@@ -1195,6 +1299,8 @@
         // Current Chrome / Edge apply JPEG EXIF orientation during decoding.
         await image.decode();
         if (current !== generation) return;
+        if (!await overlayFontsReady) throw new Error("英文字体加载失败，请刷新网页后重试。");
+        if (current !== generation) return;
         const scale = Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));
         const width = Math.max(1,Math.round(image.naturalWidth*scale));
         const height = Math.max(1,Math.round(image.naturalHeight*scale));
@@ -1225,7 +1331,7 @@
       } catch (error) {
         if (current !== generation) return;
         clearImages();
-        message(error.message.includes("JPG") ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。","error");
+        message(/JPG|字体/.test(error.message) ? error.message : "无法读取图片，请重新选择完整的 JPG 或 PNG 文件。","error");
       } finally {
         if (objectURL) URL.revokeObjectURL(objectURL);
       }
@@ -1371,6 +1477,16 @@
     strokeWidth.addEventListener("change", renderOverlay);
     overlayColor.addEventListener("change", renderOverlay);
     overlayStyle.addEventListener("change", renderOverlay);
+    let distortionFrame = null;
+    distortionStrength.addEventListener("input", () => {
+      distortionValue.value = distortionStrength.value;
+      // Coalesce fast slider events; styling never re-enters Detection.
+      if (distortionFrame !== null) return;
+      distortionFrame = requestAnimationFrame(() => {
+        distortionFrame = null;
+        renderOverlay();
+      });
+    });
     labelMode.addEventListener("change", renderOverlay);
     customText.addEventListener("input", () => {
       // Synchronous local updates preserve a trailing space while typing a
@@ -1388,6 +1504,11 @@
     });
     downloadPNG.addEventListener("click", () => {
       if (!retained || !cachedLayers || pendingExport) return;
+      if (distortionFrame !== null) {
+        cancelAnimationFrame(distortionFrame);
+        distortionFrame = null;
+        renderOverlay();
+      }
       const token = {generation};
       pendingExport = token;
       downloadPNG.disabled = true;
@@ -1399,7 +1520,8 @@
       snapshot.getContext("2d").drawImage(output,0,0);
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
-      const filename = `image_observer_html_build_02_4_${overlayStyle.value === "VECTOR" ? "vector" : "ink"}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
+      const filename = `image_observer_html_build_02_5_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
