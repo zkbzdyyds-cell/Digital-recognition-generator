@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.7.2</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>IMAGE OBSERVER · 构建 02.8</title>
   <style>
     @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-latin.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+0020-024F,U+2000-206F; }
     @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-cjk.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+3000-30FF,U+3400-9FFF,U+FF00-FFEF; }
@@ -91,11 +91,12 @@
       .preview { min-height: 240px; padding: 12px; }
     }
   </style>
+  <link rel="stylesheet" href="workbench.css">
 </head>
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.7.2</h1>
+      <h1>IMAGE OBSERVER · 构建 02.8</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -244,6 +245,8 @@
   </main>
   <script src="official-presets.js"></script>
   <script src="templates.js"></script>
+  <script src="history.js"></script>
+  <script src="workbench.js"></script>
   <script>
 /* Detection Build 02.2: local, deterministic CPU image analysis; no models or network. */
 (function (root) {
@@ -1644,6 +1647,7 @@ window.ObserverForeground = (() => {
       document.fonts.load('500 16px "Observer Inter Medium"')
     ]).then(faces => faces.every(list => list.length > 0), () => false);
     let generation = 0, retained = null, focus = null, structureTimer = null;
+    let workspaceHistory=null,historyTimer=null,historyRestoring=false,rangeDragging=false;
     // Only text needed by the strip requests a font subset. Other layers never use it.
     let stripFontText=null,stripFontTicket=0,stripFontRequest=null;
     function ensureStripFont(text=ObserverForeground.SOURCE) {
@@ -1663,6 +1667,7 @@ window.ObserverForeground = (() => {
     let activeDrag = null, selectionCycle = null;
 
     function clearImages() {
+      workspaceHistory?.clear();clearTimeout(historyTimer);historyTimer=null;rangeDragging=false;
       cancelBoxDrag();
       clearTimeout(structureTimer);
       structureTimer = null;
@@ -1740,6 +1745,7 @@ window.ObserverForeground = (() => {
       original.hidden = output.hidden = false;
       outputStage.hidden = false;
       originalPlaceholder.hidden = outputPlaceholder.hidden = true;
+      ObserverWorkbench.refreshView();
     }
 
     function updateLabelControls() {
@@ -1909,6 +1915,7 @@ window.ObserverForeground = (() => {
       editorRevision++;
       selectedBoxId = selectionCycle = null;
       renderOverlay();
+      historyCheckpoint();
     }
 
     async function showImage(file) {
@@ -1964,6 +1971,7 @@ window.ObserverForeground = (() => {
         // Read the current slider after decoding; pending uploads use its latest value.
         renderOutput();
         message(`${file.name} · ${width} × ${height} · 完成`,"done");
+        workspaceHistory?.reset();
       } catch (error) {
         if (current !== generation) return;
         clearImages();
@@ -2074,6 +2082,7 @@ window.ObserverForeground = (() => {
       }
       output.style.cursor = boxHits(event).length ? "move" : "default";
       drawEditGuide();
+      if(finished.moved)historyCheckpoint();
     });
     output.addEventListener("pointercancel", event => {
       if (activeDrag && event.pointerId === activeDrag.pointerId) {
@@ -2228,7 +2237,7 @@ window.ObserverForeground = (() => {
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_7_2_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_8_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
@@ -2285,10 +2294,83 @@ window.ObserverForeground = (() => {
         fragmentGeometryKey=null;
       }
       renderOverlay();
+      historyCheckpoint();
       return manual?'已应用；保留手动碎片编辑，未覆盖其开关、数量和变换参数。':'已应用模板。';
     }
     ObserverTemplates.init({controls:recipeControls,capture:captureRecipe,apply:applyRecipe,
       thumbnail:()=>{if(!retained)throw new Error('请先上传图片，再保存模板。');renderOverlay();return output;},words:ObserverOverlay.EMOTION_POOL});
+    function captureHistory() {
+      if(!retained||!cachedLayers)return null;
+      const editor=state=>state?{automatic:state.automatic,entries:state.entries}:null;
+      return {generation,recipe:captureRecipe(),structure:Number(structure.value),focus,cachedLayers,
+        editor:editor(editorState),fragments:editor(fragmentEditState),fragmentAnchors,fragmentPlans,fragmentGeometryKey,fragmentRandomPolicy,
+        editTarget:editTarget.value,editBoxes:editBoxes.value};
+    }
+    function restoreHistory(snapshot) {
+      if(!retained||snapshot.generation!==generation)throw new Error('图片已更换，不能恢复旧图片的操作。');
+      historyRestoring=true;
+      try {
+        clearTimeout(historyTimer);historyTimer=null;clearTimeout(structureTimer);structureTimer=null;
+        if(baseFrame!==null){cancelAnimationFrame(baseFrame);baseFrame=null;}
+        if(distortionFrame!==null){cancelAnimationFrame(distortionFrame);distortionFrame=null;}
+        cancelBoxDrag();
+        for(const el of recipeControls) {
+          if(el.type==='checkbox')el.checked=snapshot.recipe.controls[el.id];else el.value=String(snapshot.recipe.controls[el.id]);
+          const count=el.parentElement.querySelector('output');if(count)count.value=el.value;
+        }
+        visualRandomState=snapshot.recipe.state.visualRandomState;textLayoutRevision=snapshot.recipe.state.textLayoutRevision;wordState={...snapshot.recipe.state.wordState};
+        structure.value=String(snapshot.structure);structureValue.value=structure.value;structureValue.textContent=structure.value;
+        focus=snapshot.focus;cachedLayers=snapshot.cachedLayers;
+        const revive=state=>state?{automatic:Object.freeze(state.automatic.map(e=>Object.freeze({...e,box:Object.freeze(e.box.slice())}))),entries:state.entries.map(e=>({...e,box:e.box.slice()}))}:null;
+        editorState=revive(snapshot.editor);fragmentEditState=revive(snapshot.fragments);
+        fragmentAnchors=snapshot.fragmentAnchors;fragmentPlans=snapshot.fragmentPlans;fragmentGeometryKey=snapshot.fragmentGeometryKey;fragmentRandomPolicy=snapshot.fragmentRandomPolicy;
+        editTarget.value=snapshot.editTarget;editBoxes.value=snapshot.editBoxes;selectedBoxId=selectionCycle=null;editorRevision++;
+        original.dataset.focus=output.dataset.focus=JSON.stringify(focus);output.dataset.autoLayers=JSON.stringify(cachedLayers);output.dataset.structure=structure.value;resetFocus.disabled=!focus;
+        renderOverlay();ObserverWorkbench.refreshView();
+      } finally {historyRestoring=false;}
+    }
+    function historyCheckpoint() {
+      if(historyRestoring||!workspaceHistory||!retained)return;
+      clearTimeout(historyTimer);historyTimer=null;
+      if(structureTimer!==null)renderOutput();
+      let repaint=false;
+      if(baseFrame!==null){cancelAnimationFrame(baseFrame);baseFrame=null;repaint=true;}
+      if(distortionFrame!==null){cancelAnimationFrame(distortionFrame);distortionFrame=null;repaint=true;}
+      if(repaint)renderOverlay();
+      workspaceHistory.commit();
+    }
+    const undoButton=document.getElementById('undoAction'),redoButton=document.getElementById('redoAction');
+    workspaceHistory=ObserverHistory.create({capture:captureHistory,restore:restoreHistory,limit:30,
+      onChange:({canUndo,canRedo})=>{undoButton.disabled=!canUndo;redoButton.disabled=!canRedo;}});
+    function travelHistory(redo=false) {
+      historyCheckpoint();
+      try{if(redo)workspaceHistory.redo();else workspaceHistory.undo();}catch(error){message(error.message||'历史恢复失败。','error');}
+    }
+    undoButton.addEventListener('click',()=>travelHistory());redoButton.addEventListener('click',()=>travelHistory(true));
+    const tracked=new Set([...recipeControls,structure,editTarget,editBoxes]);
+    const textInput=target=>target instanceof HTMLTextAreaElement||target instanceof HTMLInputElement&&['text','search','email','url','password','number'].includes(target.type)||target?.isContentEditable;
+    document.addEventListener('input',event=>{
+      if(!tracked.has(event.target)||event.isComposing||historyRestoring)return;
+      clearTimeout(historyTimer);
+      if(!rangeDragging)historyTimer=setTimeout(historyCheckpoint,textInput(event.target)?650:450);
+    });
+    document.addEventListener('change',event=>{
+      if(tracked.has(event.target)&&!rangeDragging&&!historyRestoring)historyCheckpoint();
+    });
+    document.addEventListener('compositionend',event=>{if(tracked.has(event.target)){clearTimeout(historyTimer);historyTimer=setTimeout(historyCheckpoint,650);}});
+    document.addEventListener('pointerdown',event=>{if(tracked.has(event.target)&&event.target.type==='range'){clearTimeout(historyTimer);rangeDragging=true;}});
+    const finishRange=()=>{if(rangeDragging){rangeDragging=false;setTimeout(historyCheckpoint,0);}};
+    document.addEventListener('pointerup',finishRange);document.addEventListener('pointercancel',finishRange);
+    const historyActions=new Set(['randomEffects','shuffleWord','resetFocus','resetBoxes','resetFragments','restoreForegroundText','shuffleTextLayout']);
+    document.addEventListener('click',event=>{
+      if(historyActions.has(event.target.closest('button')?.id)||event.target===original)historyCheckpoint();
+    });
+    document.addEventListener('keydown',event=>{
+      if(!(event.ctrlKey||event.metaKey)||event.altKey||event.isComposing||textInput(event.target))return;
+      const key=event.key.toLowerCase();
+      if(key==='z'||key==='y'){event.preventDefault();travelHistory(key==='y'||event.shiftKey);}
+    });
+
     updateEditingControls();
   </script>
 </body>
