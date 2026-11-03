@@ -15,11 +15,14 @@ window.ObserverTemplates = (() => {
     const schema=api.controls.map(el=>({id:el.id,type:el.type,options:el.tagName==='SELECT'?Array.from(el.options,o=>o.value):null,min:Number(el.min),max:Number(el.max),maxChars:el.id==='customText'?32:el.maxLength>0?el.maxLength:2048}));
     function validateRecipe(input) {
       if(!plain(input)||input.version!==VERSION||!plain(input.controls)||!plain(input.state))throw new Error('模板配方版本或结构不正确。');
-      if(Object.keys(input.controls).length!==schema.length)throw new Error('模板参数缺失或不兼容。');
+      // Version 1 recipes predating group size retain their original 100% baseline.
+      const sourceControls={...input.controls};
+      if(!Object.hasOwn(sourceControls,'fragmentSize'))sourceControls.fragmentSize=100;
+      if(Object.keys(sourceControls).length!==schema.length)throw new Error('模板参数缺失或不兼容。');
       const controls={};
       for(const item of schema) {
-        if(!Object.hasOwn(input.controls,item.id))throw new Error('模板参数缺失。');
-        const value=input.controls[item.id];
+        if(!Object.hasOwn(sourceControls,item.id))throw new Error('模板参数缺失。');
+        const value=sourceControls[item.id];
         if(item.options) {if(typeof value!=='string'||!item.options.includes(value))throw new Error('模板包含无效选项。');}
         else if(item.type==='range') {if(typeof value!=='number'||!Number.isInteger(value)||value<item.min||value>item.max)throw new Error('模板参数超出允许范围。');}
         else if(item.type==='checkbox') {if(typeof value!=='boolean')throw new Error('模板开关格式不正确。');}

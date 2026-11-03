@@ -6,6 +6,8 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>IMAGE OBSERVER · 构建 02.7.2</title>
   <style>
+    @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-latin.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+0020-024F,U+2000-206F; }
+    @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-cjk.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+3000-30FF,U+3400-9FFF,U+FF00-FFEF; }
     @font-face { font-family: "Observer Inter Light"; src: url("assets/fonts/InterDisplay-Light-latin.woff2?v=027") format("woff2"); font-weight: 300; font-display: swap; }
     @font-face { font-family: "Observer Inter Medium"; src: url("assets/fonts/InterDisplay-Medium-latin.woff2") format("woff2"); font-weight: 500; font-display: swap; }
     :root { color-scheme: light; font-family: "Observer Inter Light", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; font-synthesis: none; color: #17202c; background: #f4f5f7; }
@@ -190,6 +192,7 @@
 <label class="structure" id="pencilControl" for="pencilStrength" hidden><span>铅笔强度</span><input id="pencilStrength" type="range" min="0" max="100" value="65"><output>65</output></label>
 <label class="structure" for="fragmentCount"><span>碎片数量</span><input id="fragmentCount" type="range" min="0" max="100" value="35"><output>35</output></label>
 <label class="structure" for="fragmentDisplacement"><span>位移强度</span><input id="fragmentDisplacement" type="range" min="0" max="100" value="45"><output>45</output></label>
+<label class="structure" for="fragmentSize"><span>图像大小</span><input id="fragmentSize" type="range" min="10" max="200" value="100"><output>100</output></label>
 <label class="structure" for="fragmentScale"><span>缩放波动</span><input id="fragmentScale" type="range" min="0" max="100" value="30"><output>30</output></label>
 <p class="edit-hint">参数调整更新未编辑碎片；当前已移动、删除的碎片保留。识别框编辑不影响碎片。</p></div></section>
       <section><label class="control" for="foregroundTextOn">前景文字奔逸<select id="foregroundTextOn"><option value="Off" selected>关</option><option value="On">开</option></select></label><div id="foregroundTextParams" hidden>
@@ -880,7 +883,8 @@ window.ObserverForeground = (() => {
   };
   const limit=(value,max)=>Math.round(Math.max(0,Math.min(100,Number(value)||0))*max/100);
   const linkCanvas=document.createElement('canvas'), fragmentCanvas=document.createElement('canvas'), textCanvas=document.createElement('canvas'), composite=document.createElement('canvas');
-  let fragmentKey=null,textKey=null,fragments=[],words=[],sourceKey=null;
+  let fragmentKey=null,textKey=null,fragments=[],words=[],sourceKey=null,stripFontLoaded=false;
+  function setStripFont(ready) {stripFontLoaded=!!ready;textKey=null;}
   const processedSource=document.createElement('canvas'),stripSprite=document.createElement('canvas'),frameSource=document.createElement('canvas'),frameOutput=document.createElement('canvas');
   function fragmentSource(original,revision,settings) {
     const key=JSON.stringify([revision,original.width,original.height,settings.style,settings.hue,settings.saturation,settings.lightness,settings.pencil,Number(settings.contrast)||0]);
@@ -958,6 +962,9 @@ window.ObserverForeground = (() => {
           x=p.cx+Math.cos(theta)*(p.rx+dw/2);y=p.cy+Math.sin(theta)*(p.ry+dh/2);
         }
       }
+      // Group size is independent of the per-fragment variation above.
+      const baseSize=Math.max(.1,Math.min(2,Number(settings.size??100)/100));
+      dw=Math.min(width*.7,dw*baseSize);dh=Math.min(height*.7,dh*baseSize);
       // A 4px clarity floor retains a small image interior plus a thin border.
       dw=Math.max(Math.min(width,4),dw);dh=Math.max(Math.min(height,4),dh);
       // Keep axis-aligned fragment bounds within the image.
@@ -999,7 +1006,7 @@ window.ObserverForeground = (() => {
             if(next&&!/\p{Script=Han}/u.test(next)&&Array.from(word.text+' '+next).length<=(tier===1?15:24))word.text+=' '+next;
           }
         }
-        word.font=`300 ${Math.max(12,Math.round(size*(.85+.35*r(3))))}px "Observer Inter Light", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif`;
+        word.font=`700 ${Math.max(12,Math.round(size*(.85+.35*r(3))))}px ${stripFontLoaded?'"Observer HY Strip", ':''}"Observer Inter Medium", Arial, "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif`;
         word.position[0]=Math.max(4,Math.min(width*(side||top?.42:.72),word.position[0]));
         const available=Math.max(1,Math.min(width*.40,width-word.position[0]-4));
         stripMeasure.textAlign='left';stripMeasure.textBaseline='alphabetic';stripMeasure.direction='ltr';
@@ -1088,7 +1095,7 @@ window.ObserverForeground = (() => {
     const ctx=composite.getContext('2d');ctx.clearRect(0,0,w,h);ctx.drawImage(base,0,0);ctx.drawImage(fragmentCanvas,0,0);ctx.drawImage(textCanvas,0,0);
     return {canvas:composite,fragments,words};
   }
-  return Object.freeze({SOURCE,fragmentPlan,textPlan,render});
+  return Object.freeze({SOURCE,fragmentPlan,textPlan,render,setStripFont});
 })();
   </script>
   <script>
@@ -1580,7 +1587,7 @@ window.ObserverForeground = (() => {
     const labelMode = document.getElementById("labelMode");
     const overlayColor = document.getElementById("overlayColor");
     const overlayStyle = document.getElementById("overlayStyle");
-    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks','foregroundTextContent','foregroundTextSize','foregroundTextColor'].map(id=>[id,document.getElementById(id)]));
+    const foregroundControls = Object.fromEntries(['fragmentOn','fragmentCount','fragmentDisplacement','fragmentScale','fragmentSize','fragmentMode','foregroundTextOn','foregroundTextCount','foregroundTextDisplacement','shuffleTextLayout','fragmentStyle','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStyle','foregroundTextStrength','textLinks','foregroundTextContent','foregroundTextSize','foregroundTextColor'].map(id=>[id,document.getElementById(id)]));
     foregroundControls.foregroundTextContent.value=ObserverForeground.SOURCE;
     const randomEffects=document.getElementById('randomEffects');
     let visualRandomState=0x6b51a297;
@@ -1591,7 +1598,7 @@ window.ObserverForeground = (() => {
     function prepareFragments(layers) {
       if(foregroundControls.fragmentOn.value!=='On')return;
       if(!fragmentAnchors)fragmentAnchors=JSON.parse(JSON.stringify(layers));
-      const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,policy:fragmentRandomPolicy};
+      const settings={on:true,count:foregroundControls.fragmentCount.value,mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,size:foregroundControls.fragmentSize.value,policy:fragmentRandomPolicy};
       const key=JSON.stringify([original.width,original.height,settings]);
       if(fragmentGeometryKey!==key) {
         cancelBoxDrag();
@@ -1637,6 +1644,18 @@ window.ObserverForeground = (() => {
       document.fonts.load('500 16px "Observer Inter Medium"')
     ]).then(faces => faces.every(list => list.length > 0), () => false);
     let generation = 0, retained = null, focus = null, structureTimer = null;
+    // Only text needed by the strip requests a font subset. Other layers never use it.
+    let stripFontText=null,stripFontTicket=0,stripFontRequest=null;
+    function ensureStripFont(text=ObserverForeground.SOURCE) {
+      text=String(text||ObserverForeground.SOURCE).slice(0,2048);
+      if(stripFontText===text)return stripFontRequest;
+      stripFontText=text;const ticket=++stripFontTicket;ObserverForeground.setStripFont(false);
+      stripFontRequest=document.fonts.load('700 16px "Observer HY Strip"',text).then(
+        faces=>{const ready=faces.length>0;if(ticket===stripFontTicket){ObserverForeground.setStripFont(ready);if(retained)renderOverlay();}return ready;},
+        ()=>{if(ticket===stripFontTicket){ObserverForeground.setStripFont(false);if(retained)renderOverlay();}return false;});
+      return stripFontRequest;
+    }
+    const stripFontReady=ensureStripFont();
     let cachedLayers = null, wordState = null, pendingExport = null;
     // Automatic boxes remain untouched. Only editorState.entries can be moved
     // or deleted; its immutable snapshot restores this exact detection layout.
@@ -1748,6 +1767,7 @@ window.ObserverForeground = (() => {
         document.getElementById(`strengthLabel${index+1}`).textContent=layer.select.value==='Glow'?'泛光强度':'强度';
       });
       if (!retained || !cachedLayers) return;
+      if(foregroundControls.foregroundTextOn.value==='On'&&foregroundControls.foregroundTextStyle.value==='Stretch')ensureStripFont(foregroundControls.foregroundTextContent.value);
       // Empty edited arrays are valid: deleting every box leaves the base image.
       const layers = editorState ? ObserverBoxEditor.layers(editorState) : cachedLayers;
       prepareFragments(layers);
@@ -1759,7 +1779,7 @@ window.ObserverForeground = (() => {
       const foreground = ObserverForeground.render(original,base,layers,generation,{
         items:foregroundControls.fragmentOn.value==='On'&&fragmentEditState?fragmentEditState.entries.map(entry=>{const f=fragmentPlans[Number(entry.id.split(':')[1])],b=entry.box;return {...f,source:f.source.slice(),position:[(b[0]+b[2])/2,(b[1]+b[3])/2],size:[b[2]-b[0],b[3]-b[1]],angle:0};}):[],
         on:foregroundControls.fragmentOn.value==='On',count:foregroundControls.fragmentCount.value,
-        mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,
+        mode:foregroundControls.fragmentMode.value,displacement:foregroundControls.fragmentDisplacement.value,scale:foregroundControls.fragmentScale.value,size:foregroundControls.fragmentSize.value,
         style:foregroundControls.fragmentStyle.value,hue:foregroundControls.fragmentHue.value,saturation:foregroundControls.fragmentSaturation.value,
         lightness:foregroundControls.fragmentLightness.value,contrast:foregroundControls.fragmentContrast.value,pencil:foregroundControls.pencilStrength.value
       },{on:foregroundControls.foregroundTextOn.value==='On',count:foregroundControls.foregroundTextCount.value,
@@ -1914,6 +1934,7 @@ window.ObserverForeground = (() => {
         // Current Chrome / Edge apply JPEG EXIF orientation during decoding.
         await image.decode();
         if (current !== generation) return;
+        await Promise.race([stripFontReady,new Promise(resolve=>setTimeout(resolve,2000))]);
         if (!await overlayFontsReady) throw new Error("英文字体加载失败，请刷新网页后重试。");
         if (current !== generation) return;
         const scale = Math.min(1,1600/Math.max(image.naturalWidth,image.naturalHeight));
@@ -2155,7 +2176,7 @@ window.ObserverForeground = (() => {
     for(const layer of effectLayers) layer.select.addEventListener("change",renderOverlay);
     xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
+    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','fragmentSize','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
       slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
@@ -2251,7 +2272,7 @@ window.ObserverForeground = (() => {
       if(!retained)throw new Error('请先上传图片，再应用模板。');
       cancelBoxDrag();
       const manual=fragmentEditState&&JSON.stringify(fragmentEditState.entries)!==JSON.stringify(fragmentEditState.automatic);
-      const protectedIds=new Set(['fragmentOn','fragmentCount','fragmentMode','fragmentDisplacement','fragmentScale']);
+      const protectedIds=new Set(['fragmentOn','fragmentCount','fragmentMode','fragmentDisplacement','fragmentScale','fragmentSize']);
       for(const el of recipeControls) {
         if(manual&&protectedIds.has(el.id))continue;
         if(el.type==='checkbox')el.checked=recipe.controls[el.id];else el.value=String(recipe.controls[el.id]);
