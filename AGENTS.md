@@ -25,7 +25,7 @@
 
 ## 当前开发顺序
 
-- Build 02.7.2 已完成；当前 Build 02.8：响应式工作台、双图预览与30步无位图撤销／重做。
+- Build 02.7.2 已完成；当前 Build 02.8 微调：增大手机预览、按住查看原图、默认单色滤镜、参数顺序与三种规则文字布局；保留历史。
 - 本轮停止在 Build 02.8，等待验收。后续：02.9 官方预设、02.10 高清导出、02.11 UI 精修。
 - 预留法语前景文字：Nous sommes seuls, sans excuses. C'est ce que j'exprimerai en disant que l'homme est condamné à être libre.
 - 自动检测缓存与手动编辑副本分开，拖删只改编辑状态；样式和词语变化保留编辑，新图、结构或焦点变化重新生成。

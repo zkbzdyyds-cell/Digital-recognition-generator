@@ -1,8 +1,8 @@
 /* DOM-only workbench: retains original control nodes, handlers and canvas pixels. */
 window.ObserverWorkbench = (()=>{
   const byId=id=>document.getElementById(id);
-  let zoom=1,workspace,panels,viewButton,collapseButton,zoomLabel,previewObserver;
-  const mobile=()=>matchMedia('(max-width:820px)').matches;
+  let zoom=1,workspace,panels,zoomLabel,previewObserver,focusHandler=null;
+  const mobile=()=>matchMedia('(max-width:820px), (pointer:coarse) and (max-width:1100px)').matches;
   function icon(path) {const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('width','16');s.setAttribute('height','16');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.6');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',path);s.append(p);return s;}
   function button(id,text,path,action) {const b=document.createElement('button');b.id=id;b.type='button';b.title=text;b.setAttribute('aria-label',text);b.append(icon(path),document.createTextNode(text));if(action)b.onclick=action;return b;}
   function refreshView() {
@@ -13,7 +13,7 @@ window.ObserverWorkbench = (()=>{
       const width=Math.max(1,c.width*fit*zoom);
       if(id==='output')byId('outputStage').style.width=width+'px';else {c.style.width=width+'px';c.style.height='auto';}
     }
-    zoomLabel.value=zoom===1?'适应':`${Math.round(zoom*100)}%`;
+    zoomLabel.value=`${Math.round(zoom*100)}%`;
   }
   function mount() {
     const main=document.querySelector('main'),header=main.querySelector('header'),intro=main.querySelector('.intro');
@@ -27,13 +27,16 @@ window.ObserverWorkbench = (()=>{
     const hint=Array.from(main.querySelectorAll('span.edit-hint')).find(e=>e.textContent.includes('手动碎片'));if(hint)global.append(hint);
     main.querySelector('.preset-area summary').prepend(icon('M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z'));
     global.append(main.querySelector('.preset-area'),byId('status'));
+    byId('editTarget').value='boxes';
+    const dragHint=document.createElement('p');dragHint.className='edit-hint';dragHint.textContent='可直接拖动方框^_^';
+    const fragmentParams=byId('fragmentParams');fragmentParams.insertBefore(byId('fragmentCount').closest('label'),byId('fragmentHue').closest('label'));
     const navigation=document.createElement('nav');navigation.className='function-navigation';navigation.setAttribute('aria-label','功能导航');sidebar.append(navigation);
     const scroll=document.createElement('div');scroll.id='parameterScroll';sidebar.append(scroll);
     const groups=[
       ['识别与标注','M4 4h6M4 4v6m16-6h-6m6 0v6M4 20h6m-6 0v-6m16 6h-6m6 0v-6',[
-        byId('structure').closest('label'),byId('strokeWidth').closest('.controls'),byId('customTextField'),byId('distortionControl'),byId('resetFocus')]],
+        byId('structure').closest('label'),byId('strokeWidth').closest('.controls'),byId('customTextField'),byId('distortionControl'),dragHint,byId('resetFocus')]],
       ['底图滤镜','M4 6h16M7 12h10M10 18h4',[
-        byId('baseFilter').closest('.controls'),byId('xrayControls'),byId('baseContrast').closest('label'),byId('vignette').closest('label')]],
+        byId('baseFilter').closest('.controls'),byId('xrayInvert').closest('label'),byId('xrayControls'),byId('baseContrast').closest('label'),byId('vignette').closest('label')]],
       ['效果层','m12 3 10 5-10 5L2 8l10-5zm-10 9 10 5 10-5M2 17l10 5 10-5',[byId('effect1').closest('.effect-layers')]],
       ['图像碎片奔逸','M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm12 1h6v6h-6z',[byId('fragmentOn').closest('section')]],
       ['前景文字奔逸','M4 5h16M12 5v15m-5 0h10',[byId('foregroundTextOn').closest('section')]],
@@ -54,17 +57,37 @@ window.ObserverWorkbench = (()=>{
     byId('downloadPNG').prepend(icon('M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5'));toolbar.append(byId('downloadPNG'));
     toolbar.append(button('zoomOut','缩小','M5 12h14',()=>{zoom=Math.max(.5,zoom/1.25);refreshView();}));
     zoomLabel=document.createElement('output');zoomLabel.id='canvasZoomValue';zoomLabel.setAttribute('aria-label','画布缩放');toolbar.append(zoomLabel);
-    toolbar.append(button('zoomIn','放大','M5 12h14M12 5v14',()=>{zoom=Math.min(4,zoom*1.25);refreshView();}),button('fitCanvas','适应视图','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{zoom=1;refreshView();}));
+    toolbar.append(button('zoomIn','放大','M5 12h14M12 5v14',()=>{zoom=Math.min(mobile()?2:4,zoom*1.25);refreshView();}),button('fitCanvas','适应视图','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{zoom=1;refreshView();}));
     const expand=button('expandCanvas','放大查看','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{workspace.classList.remove('collapsed');workspace.classList.toggle('expanded');expand.lastChild.textContent=workspace.classList.contains('expanded')?'退出放大':'放大查看';refreshView();});toolbar.append(expand);
-    viewButton=button('mobileOriginal','查看原图','M3 5h18v14H3zM6 15l4-5 4 4 3-2 3 3',()=>{const original=workspace.dataset.mobileView!=='original';workspace.dataset.mobileView=original?'original':'output';viewButton.lastChild.textContent=original?'返回实时输出':'查看原图';refreshView();});viewButton.className='mobile-only';toolbar.append(viewButton);
-    collapseButton=button('collapsePreview','收起预览','m6 14 6-6 6 6',()=>{workspace.classList.toggle('collapsed');collapseButton.lastChild.textContent=workspace.classList.contains('collapsed')?'展开预览':'收起预览';refreshView();});collapseButton.className='mobile-only';toolbar.append(collapseButton);
+    byId('fitCanvas').className='desktop-only';expand.className='desktop-only';
     panels=main.querySelector('.panels');workspace.append(panels);byId('outputLabel').textContent='实时输出';
+    const holdHint=document.createElement('p');holdHint.className='hold-hint';holdHint.textContent='按住预览查看原图 · 关闭编辑后轻点设焦点';workspace.insertBefore(holdHint,panels);
+    let holdTimer=null,press=null,holdConsumed=false;
+    const stopHold=()=>{clearTimeout(holdTimer);holdTimer=null;press=null;workspace.classList.remove('holding-original');};
+    panels.addEventListener('pointerdown',event=>{
+      if(!mobile()||event.isPrimary===false||event.button!==0||byId('output').hidden)return;
+      stopHold();holdConsumed=false;press={id:event.pointerId,x:event.clientX,y:event.clientY};
+      holdTimer=setTimeout(()=>{if(press){holdConsumed=true;workspace.classList.add('holding-original');refreshView();const views=panels.querySelectorAll('.preview');views[0].scrollLeft=views[1].scrollLeft;views[0].scrollTop=views[1].scrollTop;}},260);
+    },true);
+    document.addEventListener('pointermove',event=>{if(press&&event.pointerId===press.id&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>6)stopHold();},true);
+    for(const type of ['pointerup','pointercancel','lostpointercapture'])document.addEventListener(type,stopHold,true);
+    window.addEventListener('blur',stopHold);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopHold();});
+    panels.addEventListener('click',event=>{
+      if(!mobile()||!focusHandler)return;
+      if(holdConsumed){holdConsumed=false;return;}
+      if(byId('editBoxes').value!=='Off')return;
+      const canvas=byId('output'),r=canvas.getBoundingClientRect();
+      if(!r.width||event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)return;
+      focusHandler([(event.clientX-r.left)*canvas.width/r.width,(event.clientY-r.top)*canvas.height/r.height]);
+    });
+    panels.addEventListener('contextmenu',event=>{if(mobile())event.preventDefault();});
+    window.addEventListener('resize',()=>{stopHold();if(mobile()){zoom=Math.min(zoom,2);workspace.classList.remove('expanded');}refreshView();});
     // Empty old wrappers have no role after moving their existing child nodes.
     for(const node of Array.from(main.children))if(!['HEADER'].includes(node.tagName)&&node!==root)node.remove();
     previewObserver=new ResizeObserver(refreshView);panels.querySelectorAll('.preview').forEach(node=>previewObserver.observe(node));window.addEventListener('resize',refreshView);
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&workspace.classList.contains('expanded')){workspace.classList.remove('expanded');expand.lastChild.textContent='放大查看';refreshView();}});
     refreshView();
   }
-  return Object.freeze({mount,refreshView});
+  return Object.freeze({mount,refreshView,setFocusHandler:handler=>focusHandler=handler});
 })();
 ObserverWorkbench.mount();
