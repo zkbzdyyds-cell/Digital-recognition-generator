@@ -8,12 +8,12 @@ h1 {font-size:19px;letter-spacing:-.5px;}
 .build {font-size:11px;}
 #workbench {display:grid;grid-template-columns:clamp(330px,36vw,400px) minmax(0,1fr);gap:12px;min-height:0;flex:1;}
 #parameterWorkspace {display:grid;grid-template-rows:auto auto minmax(0,1fr);min-width:0;min-height:0;background:#fff;border:1px solid #dfe4eb;border-radius:10px;overflow:hidden;}
-.global-actions {padding:10px;max-height:33dvh;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:7px;align-items:start;}
+.global-actions {padding:10px;max-height:33dvh;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:start;}
 .global-actions .upload {padding:9px 6px;gap:4px;min-height:55px;}
 .global-actions .upload svg {width:18px;height:18px;}
 .global-actions .upload strong {font-size:12px;}
 .global-actions .upload span {display:none;}
-.global-actions #randomEffects {margin:0;min-height:55px;justify-content:center;font-size:12px;}
+.global-actions #randomEffects {margin:0;width:max-content;min-height:36px;padding:7px 10px;justify-self:start;align-self:center;justify-content:center;font-size:12px;}
 .global-actions>.edit-hint,.global-actions>.preset-area,.global-actions>#status {grid-column:1/-1;}
 .global-actions>.edit-hint {font-size:11px;margin:0;}
 .global-actions .preset-area {margin:0;}
@@ -76,6 +76,7 @@ button svg {flex:none;}
   #canvasWorkspace .hold-hint {display:block;}
   .global-actions {padding:6px;max-height:18dvh;gap:5px;}
   .global-actions .upload,.global-actions #randomEffects {min-height:36px;padding:5px;}
+  .global-actions #randomEffects {min-height:40px;padding:7px 9px;}
   .global-actions .upload {flex-direction:row;}
   .global-actions>.edit-hint {display:none;}
   .function-navigation {display:flex;overflow-x:auto;gap:6px;padding:7px;scrollbar-width:thin;overscroll-behavior-x:contain;}
@@ -89,6 +90,7 @@ button svg {flex:none;}
   #canvasWorkspace {height:44dvh;min-height:160px;}
   .global-actions {max-height:18dvh;}
   .global-actions .upload,.global-actions #randomEffects {min-height:30px;}
+  .global-actions #randomEffects {min-height:36px;}
   .function-navigation {padding:4px;}
   .function-navigation button {min-height:36px;padding:6px 10px;}
 }

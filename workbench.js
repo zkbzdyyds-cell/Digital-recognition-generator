@@ -1,19 +1,38 @@
 /* DOM-only workbench: retains original control nodes, handlers and canvas pixels. */
 window.ObserverWorkbench = (()=>{
   const byId=id=>document.getElementById(id);
-  let zoom=1,workspace,panels,zoomLabel,previewObserver,focusHandler=null;
+  let zoom=1,workspace,panels,zoomLabel,previewObserver,resizeFrame=0,focusHandler=null;
   const mobile=()=>matchMedia('(max-width:820px), (pointer:coarse) and (max-width:1100px)').matches;
   function icon(path) {const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('width','16');s.setAttribute('height','16');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.6');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',path);s.append(p);return s;}
   function button(id,text,path,action) {const b=document.createElement('button');b.id=id;b.type='button';b.title=text;b.setAttribute('aria-label',text);b.append(icon(path),document.createTextNode(text));if(action)b.onclick=action;return b;}
   function refreshView() {
     if(!workspace)return;
     for(const id of ['original','output']) {
-      const c=byId(id),preview=c.closest('.preview');if(!preview.clientWidth||!preview.clientHeight||c.hidden)continue;
-      const fit=Math.min(1,Math.max(1,preview.clientWidth-18)/c.width,Math.max(1,preview.clientHeight-18)/c.height);
+      const c=byId(id),preview=c.closest('.preview'),bounds=preview.getBoundingClientRect();
+      if(!bounds.width||!bounds.height||c.hidden)continue;
+      // clientWidth/clientHeight change when scrollbars appear. Fitting against
+      // them feeds the scaled image back into its own layout (125% can oscillate).
+      // The allocated border box stays fixed; subtract actual padding/borders
+      // and a small rounding allowance, without depending on scrollbar presence.
+      const css=getComputedStyle(preview),px=name=>parseFloat(css[name])||0;
+      const availableWidth=bounds.width-px('paddingLeft')-px('paddingRight')-px('borderLeftWidth')-px('borderRightWidth')-2;
+      const availableHeight=bounds.height-px('paddingTop')-px('paddingBottom')-px('borderTopWidth')-px('borderBottomWidth')-2;
+      const fit=Math.min(1,Math.max(1,availableWidth)/c.width,Math.max(1,availableHeight)/c.height);
       const width=Math.max(1,c.width*fit*zoom);
-      if(id==='output')byId('outputStage').style.width=width+'px';else {c.style.width=width+'px';c.style.height='auto';}
+      const target=id==='output'?byId('outputStage'):c,value=width+'px';
+      if(target.style.width!==value)target.style.width=value;
+      if(id==='original')c.style.height='auto';
     }
     zoomLabel.value=`${Math.round(zoom*100)}%`;
+  }
+  function scheduleRefresh() {
+    if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;refreshView();});
+  }
+  function stepZoom(direction) {
+    const stops=[.5,.75,1,1.25,1.5,1.75,2,2.5,3,4].filter(value=>value<=(mobile()?2:4));
+    zoom=direction>0?(stops.find(value=>value>zoom+.001)||stops.at(-1)):
+      (stops.slice().reverse().find(value=>value<zoom-.001)||stops[0]);
+    refreshView();
   }
   function mount() {
     const main=document.querySelector('main'),header=main.querySelector('header'),intro=main.querySelector('.intro');
@@ -55,9 +74,9 @@ window.ObserverWorkbench = (()=>{
     const toolbar=document.createElement('div');toolbar.className='canvas-toolbar';workspace.append(toolbar);
     toolbar.append(button('undoAction','撤销','M9 4 3 10l6 6M3 10h11a6 6 0 0 1 6 6'),button('redoAction','重做','m15 4 6 6-6 6m6-6H10a6 6 0 0 0-6 6'));
     byId('downloadPNG').prepend(icon('M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5'));toolbar.append(byId('downloadPNG'));
-    toolbar.append(button('zoomOut','缩小','M5 12h14',()=>{zoom=Math.max(.5,zoom/1.25);refreshView();}));
+    toolbar.append(button('zoomOut','缩小','M5 12h14',()=>stepZoom(-1)));
     zoomLabel=document.createElement('output');zoomLabel.id='canvasZoomValue';zoomLabel.setAttribute('aria-label','画布缩放');toolbar.append(zoomLabel);
-    toolbar.append(button('zoomIn','放大','M5 12h14M12 5v14',()=>{zoom=Math.min(mobile()?2:4,zoom*1.25);refreshView();}),button('fitCanvas','适应视图','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{zoom=1;refreshView();}));
+    toolbar.append(button('zoomIn','放大','M5 12h14M12 5v14',()=>stepZoom(1)),button('fitCanvas','适应视图','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{zoom=1;refreshView();}));
     const expand=button('expandCanvas','放大查看','M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6',()=>{workspace.classList.remove('collapsed');workspace.classList.toggle('expanded');expand.lastChild.textContent=workspace.classList.contains('expanded')?'退出放大':'放大查看';refreshView();});toolbar.append(expand);
     byId('fitCanvas').className='desktop-only';expand.className='desktop-only';
     panels=main.querySelector('.panels');workspace.append(panels);byId('outputLabel').textContent='实时输出';
@@ -81,10 +100,11 @@ window.ObserverWorkbench = (()=>{
       focusHandler([(event.clientX-r.left)*canvas.width/r.width,(event.clientY-r.top)*canvas.height/r.height]);
     });
     panels.addEventListener('contextmenu',event=>{if(mobile())event.preventDefault();});
-    window.addEventListener('resize',()=>{stopHold();if(mobile()){zoom=Math.min(zoom,2);workspace.classList.remove('expanded');}refreshView();});
+    window.addEventListener('resize',()=>{stopHold();if(mobile()){zoom=Math.min(zoom,2);workspace.classList.remove('expanded');}scheduleRefresh();});
     // Empty old wrappers have no role after moving their existing child nodes.
     for(const node of Array.from(main.children))if(!['HEADER'].includes(node.tagName)&&node!==root)node.remove();
-    previewObserver=new ResizeObserver(refreshView);panels.querySelectorAll('.preview').forEach(node=>previewObserver.observe(node));window.addEventListener('resize',refreshView);
+    // Scrollbar/content changes must not schedule another fitting pass.
+    previewObserver=new ResizeObserver(scheduleRefresh);panels.querySelectorAll('.preview').forEach(node=>previewObserver.observe(node,{box:'border-box'}));
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&workspace.classList.contains('expanded')){workspace.classList.remove('expanded');expand.lastChild.textContent='放大查看';refreshView();}});
     refreshView();
   }
