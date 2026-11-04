@@ -98,3 +98,15 @@ button svg {flex:none;}
 .preset-area summary svg {vertical-align:middle;margin-right:4px;}
 
 .parameter-group>.invert-control {display:flex;align-items:center;gap:7px;min-height:36px;margin-top:0;}
+
+/* Temporary calibration stays inside the existing collapsed preset area. */
+.official-card {border-color:#bfcfe8;}
+.preset-caption {margin:5px 0 0;font-size:11px;line-height:1.4;color:#687586;}
+.official-card small {font-size:10px;color:#687586;}
+.official-developer {margin-top:10px;padding:8px;border:1px solid #edf0f4;border-radius:6px;}
+.official-developer summary {font-size:11px;color:#687586;}
+.official-developer .control {display:flex;flex-direction:column;gap:5px;margin:8px 0;font-size:12px;min-width:0;}
+.official-developer input,.official-developer select,.official-developer textarea {width:100%;min-width:0;box-sizing:border-box;}
+.official-developer textarea {font-family:ui-monospace,monospace;font-size:11px;resize:vertical;}
+.official-developer button {font-size:11px;padding:6px;}
+#officialStatus {font-size:11px;overflow-wrap:anywhere;}

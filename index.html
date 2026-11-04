@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' blob: data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>IMAGE OBSERVER · 构建 02.8.1</title>
+  <title>IMAGE OBSERVER · 构建 02.9</title>
   <style>
     @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-latin.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+0020-024F,U+2000-206F; }
     @font-face { font-family: "Observer HY Strip"; src: url("assets/fonts/HYQiHeiY1-75W-cjk.woff2") format("woff2"); font-weight: 700; font-display: swap; unicode-range: U+3000-30FF,U+3400-9FFF,U+FF00-FFEF; }
@@ -96,7 +96,7 @@
 <body>
   <main>
     <header>
-      <h1>IMAGE OBSERVER · 构建 02.8.1</h1>
+      <h1>IMAGE OBSERVER · 构建 02.9</h1>
       <span class="build">识别模式</span>
     </header>
     <p class="intro">上传一张图片，观察图像结构中的信息区域。所有处理均在当前浏览器本地完成。</p>
@@ -111,6 +111,17 @@
     <section class="preset-area" aria-label="预设效果">
       <details><summary>预设效果</summary>
         <h3>官方预设</h3><div id="officialCards" class="template-cards"></div>
+        <details id="officialDeveloper" class="official-developer"><summary>开发者选项</summary>
+          <p class="edit-hint">临时校准工具。保存仅覆盖本浏览器；不会直接修改 GitHub，也不改变当前图片。</p>
+          <label class="control" for="officialSlot">校准槽位<select id="officialSlot"></select></label>
+          <p id="officialSource" class="edit-hint"></p>
+          <label class="control" for="officialName">预设名称<input id="officialName" type="text" maxlength="80" autocomplete="off"></label>
+          <div class="actions"><button id="readOfficialParams" type="button">读取当前参数</button><button id="saveOfficial" type="button">保存当前效果到此预设</button><button id="renameOfficial" type="button">保存名称</button><button id="updateOfficialThumbnail" type="button">仅更新缩略图</button></div>
+          <label class="control" for="officialValues">当前视觉配方<textarea id="officialValues" rows="5" readonly spellcheck="false" placeholder="点击“读取当前参数”查看"></textarea></label>
+          <div class="actions"><button id="exportOfficial" type="button">导出官方预设 JSON</button><button id="importOfficial" type="button">导入到所选槽位</button><button id="resetOfficial" type="button">重置此预设</button><input id="officialFile" type="file" accept="application/json,.json" hidden></div>
+          <p class="edit-hint">正式写回：导出 JSON → 确认校准结果 → 将参数及压缩缩略图写入网站静态配置并提交。清除网站数据会丢失本地覆盖值，请导出备份。</p>
+          <p id="officialStatus" role="status" aria-live="polite"></p>
+        </details>
         <h3>我的模板</h3><div class="actions"><button id="saveTemplate" type="button">保存当前效果</button><button id="importTemplate" type="button">导入模板</button><input id="templateFile" type="file" accept="application/json,.json" hidden></div>
         <p class="edit-hint">模板仅存于当前浏览器。清除网站数据或更换设备可能丢失，请导出 JSON 备份。缩略图包含画面内容，仅用于预览。</p>
         <p id="templateStatus" role="status" aria-live="polite"></p><div id="personalCards" class="template-cards"></div>
@@ -244,6 +255,7 @@
     </div>
   </main>
   <script src="official-presets.js"></script>
+  <script src="official-calibration.js"></script>
   <script src="templates.js"></script>
   <script src="history.js"></script>
   <script src="workbench.js"></script>
@@ -2249,7 +2261,7 @@ window.ObserverForeground = (() => {
       const mode = labelMode.value === "Emotion Pool" ? "pool" : labelMode.value === "Custom Text" ? "custom" : "off";
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
-      const filename = `image_observer_html_build_02_8_1_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
+      const filename = `image_observer_html_build_02_9_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
       function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
@@ -2291,6 +2303,7 @@ window.ObserverForeground = (() => {
     }
     function applyRecipe(recipe) {
       if(!retained)throw new Error('请先上传图片，再应用模板。');
+      historyCheckpoint();
       cancelBoxDrag();
       const manual=fragmentEditState&&JSON.stringify(fragmentEditState.entries)!==JSON.stringify(fragmentEditState.automatic);
       const protectedIds=new Set(['fragmentOn','fragmentCount','fragmentMode','fragmentDisplacement','fragmentScale','fragmentSize']);

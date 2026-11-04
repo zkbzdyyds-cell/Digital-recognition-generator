@@ -9,7 +9,7 @@ window.ObserverTemplates = (() => {
     return value.trim();
   };
   function init(api) {
-    const status=document.getElementById('templateStatus'),personal=document.getElementById('personalCards'),official=document.getElementById('officialCards');
+    const status=document.getElementById('templateStatus'),personal=document.getElementById('personalCards');
     const save=document.getElementById('saveTemplate'),file=document.getElementById('templateFile'),importButton=document.getElementById('importTemplate');
     const say=(text,error=false)=>{status.textContent=text;status.style.color=error?'#b42c34':'';};
     const schema=api.controls.map(el=>({id:el.id,type:el.type,options:el.tagName==='SELECT'?Array.from(el.options,o=>o.value):null,min:Number(el.min),max:Number(el.max),maxChars:el.id==='customText'?32:el.maxLength>0?el.maxLength:2048}));
@@ -61,8 +61,10 @@ window.ObserverTemplates = (() => {
     }
     const blobURL=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('无法读取缩略图。'));reader.readAsDataURL(blob);});
     async function thumbnail(canvas) {
-      const c=document.createElement('canvas'),scale=Math.min(1,320/Math.max(canvas.width,canvas.height));
-      c.width=Math.max(1,Math.round(canvas.width*scale));c.height=Math.max(1,Math.round(canvas.height*scale));
+      const width=canvas.naturalWidth||canvas.width,height=canvas.naturalHeight||canvas.height;
+      if(!width||!height)throw new Error('当前没有可保存的预览图。');
+      const c=document.createElement('canvas'),scale=Math.min(1,320/Math.max(width,height));
+      c.width=Math.max(1,Math.round(width*scale));c.height=Math.max(1,Math.round(height*scale));
       const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(canvas,0,0,c.width,c.height);
       const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',.72));c.width=c.height=1;
       if(!blob||blob.size>120000)throw new Error('无法生成轻量缩略图，请重试。');return blob;
@@ -95,6 +97,7 @@ window.ObserverTemplates = (() => {
       const c=document.createElement('article');c.className='template-card';
       const apply=button(record.name,act(async()=>say(api.apply(validateRecipe(record.recipe)))),'apply-template');
       const img=document.createElement('img');img.alt=record.name;img.loading='lazy';
+      if(officialRecord)img.onerror=()=>{img.hidden=true;const note=document.createElement('p');note.className='preset-caption';note.textContent='缩略图暂不可用，可在开发者选项中更新。';c.append(note);};
       img.src=officialRecord?record.thumbnail:await blobURL(record.thumbnail);apply.prepend(img,document.createElement('br'));c.append(apply);
       if(!officialRecord) {
         const actions=document.createElement('div');actions.className='actions';
@@ -136,18 +139,8 @@ window.ObserverTemplates = (() => {
       const name=nameOf(data.name),recipe=validateRecipe(data.recipe),blob=await validateThumbnail(data.thumbnail);
       await transaction('readwrite',store=>store.put({id:id(),name,recipe,thumbnail:blob,created:Date.now()}));await refresh();say('已导入模板。点击缩略图应用到当前图片。');
     });
-    async function loadOfficial() {
-      const config=window.ObserverOfficialPresets;
-      if(!config||config.version!==1||!Array.isArray(config.slots)||config.slots.length!==4)throw new Error('官方预设配置格式不正确。');
-      for(const entry of config.slots) {
-        if(!entry)continue;
-        const name=nameOf(entry.name),recipe=validateRecipe(entry.recipe),url=new URL(entry.thumbnail,location.href);
-        if(url.origin!==location.origin||!url.pathname.startsWith(new URL('.',location.href).pathname)||!(/\.(jpg|jpeg|png|webp)$/i.test(url.pathname)))throw new Error('官方缩略图须为本站静态图片。');
-        official.append(await card({name,recipe,thumbnail:url.href},true));
-      }
-      if(!official.children.length){const p=document.createElement('p');p.textContent='四个官方预设位已预留，等待你提供确认的图片和参数。';official.append(p);}
-    }
-    loadOfficial().catch(error=>say(error.message,true));
+    ObserverOfficialCalibration.init({capture:api.capture,apply:api.apply,canvas:api.thumbnail,
+      validateRecipe,validateThumbnail,thumbnail,blobURL,nameOf,download,card:record=>card(record,true)});
     refresh().catch(error=>say(`本地模板存储不可用：${error.message}。保存与导入不会显示为成功。`,true));
     return Object.freeze({validateRecipe});
   }

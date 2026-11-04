@@ -25,8 +25,9 @@
 
 ## 当前开发顺序
 
-- 当前 Build 02.8.1：修复预览缩放的滚动条反馈抖动，缩小随机效果按钮；保留历史。
-- 本轮停止在 Build 02.8.1，等待验收。后续：02.9 官方预设、02.10 高清导出、02.11 UI 精修。
+- 当前 Build 02.9：四组静态官方预设与默认折叠的开发者校准面板；停止并等待验收。后续：02.10 高清导出、02.11 UI 精修；不得提前开发。
+- 官方预设按 yushe.zip 分组：01 水鸭、02 公园人群、03 杯子、04 蘑菇设施。仅发布 assets/presets/ 中四张320px目标效果缩略图；完整参考图与原图不得提交。
+- 校准覆盖值与我的模板分开存于 IndexedDB。校准不直接写 GitHub；用户确认导出的官方 JSON 后，才将 params/name/description 及压缩缩略图写回 official-presets.js 和对应资源。
 - 预留法语前景文字：Nous sommes seuls, sans excuses. C'est ce que j'exprimerai en disant que l'homme est condamné à être libre.
 - 自动检测缓存与手动编辑副本分开，拖删只改编辑状态；样式和词语变化保留编辑，新图、结构或焦点变化重新生成。
 - 编辑辅助标记不得进入 PNG；保留原有 Detection、比例、Seed 和标签规则，不提前开发后续 Build。
