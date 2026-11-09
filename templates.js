@@ -18,7 +18,9 @@ window.ObserverTemplates = (() => {
       // Version 1 recipes predating group size retain their original 100% baseline.
       const sourceControls={...input.controls};
       if(!Object.hasOwn(sourceControls,'fragmentSize'))sourceControls.fragmentSize=100;
-      sourceControls.baseFilter='XRay';
+      // Old recipes have no normal-photo controls; keep their mode and add
+      // neutral values without overwriting stored/calibrated parameters.
+      for(const [id,value] of Object.entries(api.neutralDefaults||{}))if(!Object.hasOwn(sourceControls,id))sourceControls[id]=value;
       if(Object.keys(sourceControls).length!==schema.length)throw new Error('模板参数缺失或不兼容。');
       const controls={};
       for(const item of schema) {

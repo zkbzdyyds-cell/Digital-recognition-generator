@@ -168,8 +168,16 @@
       <input id="customText" type="text" autocomplete="off" spellcheck="false" placeholder="输入中英文标签">
     </label>
     <label class="structure" id="distortionControl" for="distortionStrength" hidden><span>失真强度</span><input id="distortionStrength" type="range" min="0" max="100" step="1" value="45"><output id="distortionValue" for="distortionStrength">45</output></label>
-    <div class="controls" hidden>
+    <div class="controls">
       <label class="control" for="baseFilter">底图滤镜<select id="baseFilter"><option value="Original">原图</option><option value="XRay" selected>X光滤镜</option></select></label>
+    </div>
+    <div id="originalControls" class="base-parameters" hidden>
+      <label class="structure" for="originalBrightness"><span>亮度</span><input id="originalBrightness" type="range" min="-100" max="100" value="0"><output>0</output></label>
+      <label class="structure" for="originalSaturation"><span>饱和度</span><input id="originalSaturation" type="range" min="0" max="200" value="100"><output>100</output></label>
+      <label class="structure" for="originalContrast"><span>对比度</span><input id="originalContrast" type="range" min="-100" max="100" value="0"><output>0</output></label>
+      <label class="structure" for="originalTemperature"><span>色温</span><input id="originalTemperature" type="range" min="-100" max="100" value="0"><output>0</output></label>
+      <label class="structure" for="originalTint"><span>色调</span><input id="originalTint" type="range" min="-100" max="100" value="0"><output>0</output></label>
+      <label class="structure" for="originalVignette"><span>暗角</span><input id="originalVignette" type="range" min="-100" max="100" value="0"><output>0</output></label>
     </div>
     <div id="xrayControls" class="base-parameters">
       <label class="structure" for="xrayHue"><span>色相</span><input id="xrayHue" type="range" min="0" max="360" value="20"><output>20</output></label>
@@ -689,7 +697,32 @@ window.ObserverImageBase = (() => {
     return [channel(0),channel(8),channel(4)];
   }
   const filtered = document.createElement('canvas'), contrasted = document.createElement('canvas'), result = document.createElement('canvas');
-  let contrastKey=null;
+  const normal = document.createElement('canvas');
+  let contrastKey=null,normalKey=null;
+  const decode=Float32Array.from({length:256},(_,i)=>i/255<=.04045?i/3294.6:((i/255+.055)/1.055)**2.4);
+  const encode=Uint8ClampedArray.from({length:4097},(_,i)=>255*(i/4096<=.0031308?12.92*i/4096:1.055*(i/4096)**(1/2.4)-.055));
+  function normalColor(source,brightness,saturation,temperature,tint) {
+    const context=normal.getContext('2d',{willReadFrequently:true});
+    const image=source.getContext('2d').getImageData(0,0,source.width,source.height),a=image.data;
+    const t=Number(temperature)/100,m=Number(tint)/100,exposure=2**(Number(brightness)/80),sat=Number(saturation)/100;
+    // Multiplicative white balance in scene-linear RGB, not RGB channel offsets.
+    const gains=[Math.exp(.28*t+.14*m),Math.exp(-.22*m),Math.exp(-.28*t+.14*m)];
+    const norm=.2126*gains[0]+.7152*gains[1]+.0722*gains[2];gains.forEach((g,i)=>gains[i]=g/norm);
+    for(let i=0;i<a.length;i+=4) {
+      let r=decode[a[i]],g=decode[a[i+1]],b=decode[a[i+2]];
+      const l=.2126*r+.7152*g+.0722*b,weight=4*l*(1-l);
+      r*=1+(gains[0]-1)*weight;g*=1+(gains[1]-1)*weight;b*=1+(gains[2]-1)*weight;
+      // Protect black/white endpoints, retain luminance, and roll highlights off.
+      const target=l*exposure/(1+l*(exposure-1)),scale=target/Math.max(1e-10,.2126*r+.7152*g+.0722*b);
+      const cr=(r*scale-target)*sat,cg=(g*scale-target)*sat,cb=(b*scale-target)*sat;
+      const hi=Math.max(cr,cg,cb),lo=Math.min(cr,cg,cb);
+      const chroma=Math.min(1,hi>0?(1-target)/hi:1,lo<0?-target/lo:1);
+      a[i]=encode[Math.round(Math.max(0,Math.min(1,target+cr*chroma))*4096)];
+      a[i+1]=encode[Math.round(Math.max(0,Math.min(1,target+cg*chroma))*4096)];
+      a[i+2]=encode[Math.round(Math.max(0,Math.min(1,target+cb*chroma))*4096)];
+    }
+    context.putImageData(image,0,0);
+  }
   const layerCaches = Array.from({length:3},()=>({canvas:document.createElement('canvas'),key:null}));
   const glowSource=document.createElement('canvas'), glowBlur=document.createElement('canvas'), streakStrip=document.createElement('canvas');
   let imageKey = null, tones = null, filterKey = null, resultKey = null;
@@ -802,14 +835,23 @@ window.ObserverImageBase = (() => {
     const w = source.width, h = source.height;
     const key = `${revision}:${w}:${h}`;
     if (imageKey !== key) {
-      imageKey = key; tones = null; filterKey = resultKey = contrastKey = null;
+      imageKey = key; tones = null; filterKey = resultKey = contrastKey = normalKey = null;
       for(const cache of layerCaches) {cache.key=null;cache.canvas.width=w;cache.canvas.height=h;}
-      filtered.width = contrasted.width = result.width = w; filtered.height = contrasted.height = result.height = h;
+      filtered.width = contrasted.width = result.width = normal.width = w; filtered.height = contrasted.height = result.height = normal.height = h;
     }
     const amount = Math.max(-100, Math.min(100, Number(vignette) || 0));
     const {hue=210, saturation=80, lightness=65, invert=false, contrast=0, layers=[]} = settings || {};
 
-    let base = source;
+    let base = source,baseStamp='Original';
+    if(mode==='Original') {
+      const {brightness=0,normalSaturation=100,temperature=0,tint=0}=settings||{};
+      // A true neutral bypass avoids rounding changes to the original photograph.
+      if(Number(brightness)||Number(normalSaturation)!==100||Number(temperature)||Number(tint)) {
+        const chosen=JSON.stringify([brightness,normalSaturation,temperature,tint]);
+        if(normalKey!==chosen){normalColor(source,brightness,normalSaturation,temperature,tint);normalKey=chosen;}
+        base=normal;baseStamp='Original:'+chosen;
+      }
+    }
     if (mode === 'XRay') {
       if (!tones) {
         // One original-pixel analysis per upload, independent of detection.
@@ -845,9 +887,9 @@ window.ObserverImageBase = (() => {
         }
         ctx.putImageData(data,0,0); filterKey=chosen;
       }
-      base=filtered;
+      base=filtered;baseStamp=filterKey;
     }
-    let stamp=key+':'+(mode==='XRay'?filterKey:'Original');
+    let stamp=key+':'+baseStamp;
     if(Number(contrast)) {
       const ck=JSON.stringify([stamp,Number(contrast)]);
       if(contrastKey!==ck) {
@@ -1640,6 +1682,7 @@ window.ObserverForeground = (() => {
       }
     }
     const baseFilter = document.getElementById("baseFilter");
+    const originalControls=Object.fromEntries(['originalBrightness','originalSaturation','originalContrast','originalTemperature','originalTint','originalVignette'].map(id=>[id,document.getElementById(id)]));
     const effectLayers = [1,2,3].map(i=>({
       select:document.getElementById(`effect${i}`), strength:document.getElementById(`strength${i}`),
       hue:document.getElementById(`glowHue${i}`), saturation:document.getElementById(`glowSaturation${i}`), lightness:document.getElementById(`glowLightness${i}`),position:document.getElementById(`wavePosition${i}`)
@@ -1690,6 +1733,7 @@ window.ObserverForeground = (() => {
     let activeDrag = null, selectionCycle = null;
 
     function clearImages() {
+      ObserverWorkbench.cancelOperation();
       workspaceHistory?.clear();clearTimeout(historyTimer);historyTimer=null;rangeDragging=false;
       cancelBoxDrag();
       clearTimeout(structureTimer);
@@ -1788,8 +1832,12 @@ window.ObserverForeground = (() => {
       document.getElementById('textLinksControl').hidden=foregroundControls.foregroundTextStyle.value==='Stretch';
       document.getElementById('foregroundTextParams').hidden=foregroundControls.foregroundTextOn.value!=='On';
       foregroundControls.shuffleTextLayout.disabled=!retained||foregroundControls.foregroundTextOn.value!=='On';
-      baseFilter.value="XRay";
-      document.getElementById("xrayControls").hidden = false;
+      const normalMode=baseFilter.value==='Original';
+      document.getElementById('originalControls').hidden=!normalMode;
+      document.getElementById('xrayControls').hidden=normalMode;
+      xrayInvert.closest('label').hidden=normalMode;
+      baseContrast.closest('label').hidden=normalMode;
+      vignette.closest('label').hidden=normalMode;
       effectLayers.forEach((layer,index)=>{
         document.getElementById(`effectParams${index+1}`).hidden=layer.select.value==='None';
         document.getElementById(`waveParams${index+1}`).hidden=layer.select.value!=='Wave';
@@ -1803,9 +1851,12 @@ window.ObserverForeground = (() => {
       prepareFragments(layers);
       const base = ObserverImageBase.render(original, generation, baseFilter.value, {
         hue:xrayHue.value, saturation:xraySaturation.value, lightness:xrayLightness.value,
-        invert:xrayInvert.checked,contrast:baseContrast.value, layers:effectLayers.map(layer=>({effect:layer.select.value,strength:layer.strength.value,
+        invert:xrayInvert.checked,contrast:normalMode?originalControls.originalContrast.value:baseContrast.value,
+        brightness:originalControls.originalBrightness.value,normalSaturation:originalControls.originalSaturation.value,
+        temperature:originalControls.originalTemperature.value,tint:originalControls.originalTint.value,
+        layers:effectLayers.map(layer=>({effect:layer.select.value,strength:layer.strength.value,
           hue:layer.hue.value,saturation:layer.saturation.value,lightness:layer.lightness.value,position:layer.position.value}))
-      }, vignette.value);
+      }, normalMode?originalControls.originalVignette.value:vignette.value);
       const foreground = ObserverForeground.render(original,base,layers,generation,{
         items:foregroundControls.fragmentOn.value==='On'&&fragmentEditState?fragmentEditState.entries.map(entry=>{const f=fragmentPlans[Number(entry.id.split(':')[1])],b=entry.box;return {...f,source:f.source.slice(),position:[(b[0]+b[2])/2,(b[1]+b[3])/2],size:[b[2]-b[0],b[3]-b[1]],angle:0};}):[],
         on:foregroundControls.fragmentOn.value==='On',count:foregroundControls.fragmentCount.value,
@@ -1863,6 +1914,7 @@ window.ObserverForeground = (() => {
       selectionStatus.textContent = !enabled ? "开启后可选中方框边线。" : selected
         ? `已选中：${editTarget.value==='fragments'?'碎片':names[selected.tier]} ${Number(selected.id.split(":")[1]) + 1}`
         : currentEditState()?.entries.length ? "未选中方框；重叠边线可再次点击切换。" : editTarget.value==='fragments'?"当前没有碎片，可恢复初始碎片。":"当前没有方框，可恢复自动框。";
+      ObserverWorkbench.refreshInteraction();
     }
 
     function drawEditGuide() {
@@ -1899,7 +1951,7 @@ window.ObserverForeground = (() => {
     function boxHits(event) {
       const point = outputPoint(event);
       if(!point)return [];
-      const hits=ObserverBoxEditor.hitTest(currentEditState(),point.x,point.y,point.sx,point.sy,6);
+      const hits=ObserverBoxEditor.hitTest(currentEditState(),point.x,point.y,point.sx,point.sy,event.pointerType==='touch'?12:6);
       if(hits.length||editTarget.value!=='fragments')return hits;
       // A fragment is a filled image object: its interior is also selectable.
       return (fragmentEditState?.entries||[]).filter(({box:b})=>point.x>=b[0]&&point.x<=b[2]&&point.y>=b[1]&&point.y<=b[3])
@@ -2005,28 +2057,37 @@ window.ObserverForeground = (() => {
       }
     }
 
+    function commitFocus(point) {
+      if(!retained)return;
+      // Fold a still-pending Structure update into this one explicit detection.
+      const pending=structureTimer!==null;
+      clearTimeout(structureTimer);structureTimer=null;
+      if(!pending)historyCheckpoint();
+      const manual=editorState&&JSON.stringify(editorState.entries)!==JSON.stringify(editorState.automatic);
+      focus=point?[Math.max(0,Math.min(original.width-1,Math.floor(point[0]*original.width))),
+        Math.max(0,Math.min(original.height-1,Math.floor(point[1]*original.height)))]:null;
+      renderOutput();historyCheckpoint();
+      message(manual?'焦点已更新，识别框已重新生成；原识别框的手动修改已重置。':point?'已按新焦点重新识别。':'已恢复自动焦点并重新识别。',manual?'notice':'done');
+    }
     original.addEventListener("click",event => {
-      if (!retained || original.hidden) return;
+      if (!retained || original.hidden || ObserverWorkbench.isOperating()) return;
       // The canvas element itself has the image's intrinsic ratio. Its CSS box
       // has no border/padding/letterboxing, so client-to-pixel scaling is exact
       // even in a narrow viewport or after the page has been scrolled.
       const bounds=original.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
-      focus=[Math.min(original.width-1,Math.max(0,Math.floor((event.clientX-bounds.left)*original.width/bounds.width))),
-        Math.min(original.height-1,Math.max(0,Math.floor((event.clientY-bounds.top)*original.height/bounds.height)))];
-      clearTimeout(structureTimer);
-      renderOutput();
+      commitFocus([Math.max(0,Math.min(1,(event.clientX-bounds.left)/bounds.width)),
+        Math.max(0,Math.min(1,(event.clientY-bounds.top)/bounds.height))]);
     });
     resetFocus.addEventListener("click",() => {
-      focus=null;
-      clearTimeout(structureTimer);
-      renderOutput();
+      if(!ObserverWorkbench.isOperating())commitFocus(null);
     });
     structure.addEventListener("input",() => {
       structureValue.value = structure.value;
       structureValue.textContent = structure.value;
       clearTimeout(structureTimer);
       structureTimer = setTimeout(() => { structureTimer = null; renderOutput(); },80);
+      ObserverWorkbench.refreshInteraction();
     });
     editBoxes.addEventListener("change", () => {
       cancelBoxDrag();
@@ -2050,7 +2111,7 @@ window.ObserverForeground = (() => {
       renderOverlay();
     });
     output.addEventListener("pointerdown", event => {
-      if (!editingEnabled() || event.button !== 0 || event.isPrimary === false || activeDrag) return;
+      if (ObserverWorkbench.isOperating() || !editingEnabled() || event.button !== 0 || event.isPrimary === false || activeDrag) return;
       event.preventDefault();
       output.focus({preventScroll: true});
       const point = outputPoint(event), hits = boxHits(event);
@@ -2125,6 +2186,7 @@ window.ObserverForeground = (() => {
     });
     // Key handling stays on the focused canvas, never on document/input fields.
     output.addEventListener("keydown", event => {
+      if(ObserverWorkbench.isOperating()){event.preventDefault();return;}
       if (event.key === "Delete" && !event.isComposing && event.target === output) {
         if (editingEnabled() && selectedEntry()) { event.preventDefault(); deleteSelectedBox(); }
       } else if (event.key === "Escape" && editingEnabled()) {
@@ -2209,7 +2271,7 @@ window.ObserverForeground = (() => {
     for(const layer of effectLayers) layer.select.addEventListener("change",renderOverlay);
     xrayInvert.addEventListener("change", renderOverlay);
     let baseFrame = null;
-    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...['fragmentCount','fragmentDisplacement','fragmentScale','fragmentSize','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
+    for(const slider of [vignette,baseContrast,xrayHue,xraySaturation,xrayLightness,...Object.values(originalControls),...['fragmentCount','fragmentDisplacement','fragmentScale','fragmentSize','foregroundTextCount','foregroundTextDisplacement','fragmentHue','fragmentSaturation','fragmentLightness','fragmentContrast','pencilStrength','foregroundTextStrength','foregroundTextSize'].map(id=>foregroundControls[id]),...effectLayers.flatMap(layer=>[layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position])]) slider.addEventListener("input", () => {
       slider.parentElement.querySelector("output").value = slider.value;
       if (baseFrame !== null) return;
       baseFrame = requestAnimationFrame(() => { baseFrame = null; renderOverlay(); });
@@ -2295,6 +2357,7 @@ window.ObserverForeground = (() => {
       showImage(event.dataTransfer.files[0]);
     });
     const recipeControls=[strokeWidth,overlayColor,overlayStyle,labelMode,distortionStrength,customText,baseFilter,xrayHue,xraySaturation,xrayLightness,xrayInvert,baseContrast,vignette,
+      ...Object.values(originalControls),
       ...effectLayers.flatMap(layer=>[layer.select,layer.strength,layer.hue,layer.saturation,layer.lightness,layer.position]),
       ...Object.entries(foregroundControls).filter(([id])=>id!=='shuffleTextLayout').map(([,control])=>control)];
     function captureRecipe() {
@@ -2323,6 +2386,7 @@ window.ObserverForeground = (() => {
       return manual?'已应用；保留手动碎片编辑，未覆盖其开关、数量和变换参数。':'已应用模板。';
     }
     ObserverTemplates.init({controls:recipeControls,capture:captureRecipe,apply:applyRecipe,
+      neutralDefaults:Object.fromEntries(Object.values(originalControls).map(el=>[el.id,Number(el.defaultValue)])),
       thumbnail:()=>{if(!retained)throw new Error('请先上传图片，再保存模板。');renderOverlay();return output;},words:ObserverOverlay.EMOTION_POOL});
     function captureHistory() {
       if(!retained||!cachedLayers)return null;
@@ -2364,10 +2428,33 @@ window.ObserverForeground = (() => {
       if(repaint)renderOverlay();
       workspaceHistory.commit();
     }
-    ObserverWorkbench.setFocusHandler(point=>{
-      if(!retained)return;
-      focus=[Math.min(original.width-1,Math.max(0,Math.floor(point[0]))),Math.min(original.height-1,Math.max(0,Math.floor(point[1])))];
-      renderOutput();historyCheckpoint();
+    ObserverWorkbench.setController({
+      info:()=>({ready:!!retained&&!!cachedLayers&&structureTimer===null,
+        focus:focus?[focus[0]/original.width,focus[1]/original.height]:null,
+        editable:editingEnabled(),target:editTarget.value,selected:!!selectedEntry(),
+        total:editorState?.entries.length||0,index:editorState?.entries.findIndex(e=>e.id===selectedBoxId)??-1}),
+      beginFocus:()=>{historyCheckpoint();},commitFocus,
+      selectBox:step=>{
+        if(!editingEnabled()||editTarget.value!=='boxes'||!editorState.entries.length)return;
+        cancelBoxDrag();const entries=editorState.entries,index=entries.findIndex(e=>e.id===selectedBoxId);
+        selectedBoxId=entries[index<0?(step<0?entries.length-1:0):(index+step+entries.length)%entries.length].id;
+        selectionCycle=null;updateEditingControls();drawEditGuide();
+      },
+      beginBox:()=>{
+        historyCheckpoint();cancelBoxDrag();const entry=selectedEntry();
+        return editingEnabled()&&editTarget.value==='boxes'&&entry?
+          {state:editorState,id:entry.id,origin:entry.box.slice(),revision:editorRevision}:null;
+      },
+      moveBox:(token,dx,dy)=>{
+        if(token.state!==editorState||token.revision!==editorRevision)return;
+        ObserverBoxEditor.move(editorState,token.id,token.origin,dx*output.width,dy*output.height,output.width,output.height);renderOverlay();
+      },
+      endBox:(token,cancel)=>{
+        if(token.state!==editorState||token.revision!==editorRevision)return;
+        if(cancel){ObserverBoxEditor.move(editorState,token.id,token.origin,0,0,output.width,output.height);renderOverlay();}
+        else historyCheckpoint();
+      },
+      error:error=>message(error.message||'操作已取消，请重试。','error')
     });
     const undoButton=document.getElementById('undoAction'),redoButton=document.getElementById('redoAction');
     workspaceHistory=ObserverHistory.create({capture:captureHistory,restore:restoreHistory,limit:30,
@@ -2391,12 +2478,12 @@ window.ObserverForeground = (() => {
     document.addEventListener('pointerdown',event=>{if(tracked.has(event.target)&&event.target.type==='range'){clearTimeout(historyTimer);rangeDragging=true;}});
     const finishRange=()=>{if(rangeDragging){rangeDragging=false;setTimeout(historyCheckpoint,0);}};
     document.addEventListener('pointerup',finishRange);document.addEventListener('pointercancel',finishRange);
-    const historyActions=new Set(['randomEffects','shuffleWord','resetFocus','resetBoxes','resetFragments','restoreForegroundText','shuffleTextLayout']);
+    const historyActions=new Set(['randomEffects','shuffleWord','resetBoxes','resetFragments','restoreForegroundText','shuffleTextLayout']);
     document.addEventListener('click',event=>{
-      if(historyActions.has(event.target.closest('button')?.id)||event.target===original)historyCheckpoint();
+      if(historyActions.has(event.target.closest('button')?.id))historyCheckpoint();
     });
     document.addEventListener('keydown',event=>{
-      if(!(event.ctrlKey||event.metaKey)||event.altKey||event.isComposing||textInput(event.target))return;
+      if(ObserverWorkbench.isOperating()||!(event.ctrlKey||event.metaKey)||event.altKey||event.isComposing||textInput(event.target))return;
       const key=event.key.toLowerCase();
       if(key==='z'||key==='y'){event.preventDefault();travelHistory(key==='y'||event.shiftKey);}
     });
