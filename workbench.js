@@ -2,21 +2,58 @@
 window.ObserverWorkbench = (()=>{
   const byId=id=>document.getElementById(id);
   let zoom=1,workspace,panels,zoomLabel,previewObserver,resizeFrame=0,controller=null;
-  let activeGroup=0,operation=null,pendingFocus=null,orb,orbStatus,previousBox,nextBox,markers=[],lockedNodes=[];
+  let layoutKey=null,layoutAspect=null,activeGroup=0,operation=null,pendingFocus=null,orb,orbStatus,previousBox,nextBox,markers=[],lockedNodes=[];
   const mobile=()=>matchMedia('(max-width:820px), (pointer:coarse) and (max-width:1100px)').matches;
   function icon(path) {const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('width','16');s.setAttribute('height','16');s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','1.6');s.setAttribute('aria-hidden','true');const p=document.createElementNS(s.namespaceURI,'path');p.setAttribute('d',path);s.append(p);return s;}
   function button(id,text,path,action) {const b=document.createElement('button');b.id=id;b.type='button';b.title=text;b.setAttribute('aria-label',text);b.append(icon(path),document.createTextNode(text));if(action)b.onclick=action;return b;}
+  const boxSpace=(element,axis)=>{
+    const css=getComputedStyle(element),sides=axis==='x'?['Left','Right']:['Top','Bottom'];
+    return sides.reduce((sum,side)=>sum+(parseFloat(css['padding'+side])||0)+(parseFloat(css['border'+side+'Width'])||0),0);
+  };
+  function paneMetrics(panel) {
+    const preview=panel.querySelector('.preview'),info=panel.querySelector('.image-info'),css=getComputedStyle(info);
+    return {x:boxSpace(panel,'x')+boxSpace(preview,'x')+2,
+      y:boxSpace(panel,'y')+boxSpace(preview,'y')+panel.querySelector('h2').getBoundingClientRect().height+
+        info.getBoundingClientRect().height+(parseFloat(css.marginTop)||0)+(parseFloat(css.marginBottom)||0)+2};
+  }
+  function chooseLayout() {
+    const canvas=byId('output'),hint=byId('layoutInfo');
+    if(mobile()||canvas.hidden){panels.dataset.layout='side';layoutKey=layoutAspect=null;if(hint)hint.textContent='左右对照';return;}
+    const r=panels.getBoundingClientRect(),css=getComputedStyle(panels),ratio=canvas.width/canvas.height;
+    const key=[r.width.toFixed(2),r.height.toFixed(2),ratio].join(':');if(key===layoutKey)return;
+    layoutKey=key;
+    const width=r.width-boxSpace(panels,'x'),height=r.height-boxSpace(panels,'y');
+    const gapX=parseFloat(css.columnGap)||0,gapY=parseFloat(css.rowGap)||0;
+    const metrics=Array.from(panels.querySelectorAll('.panel'),paneMetrics);
+    const area=(w,h,m)=>{const fit=Math.max(0,Math.min(w-m.x,(h-m.y)*ratio));return fit*fit/ratio;};
+    const side=area((width-gapX)*.34,height,metrics[0])+1.25*area((width-gapX)*.66,height,metrics[1]);
+    const stack=area(width,(height-gapY)*.42,metrics[0])+1.25*area(width,(height-gapY)*.58,metrics[1]);
+    const threshold=ratio>1.65?.75:1;
+    const previous=layoutAspect===ratio?panels.dataset.layout:null;
+    // A dead band retains the current layout near a tie; layout never depends
+    // on the CSS size of the scaled canvas or on whether scrollbars are present.
+    const preferStack=ratio>=.96&&stack>side*threshold*(previous==='stack'?.92:previous==='side'?1.08:1);
+    panels.dataset.layout=preferStack?'stack':'side';layoutAspect=ratio;
+    if(hint)hint.textContent=preferStack?'上下对照':'左右对照';
+  }
+  function refreshInfo() {
+    if(!panels)return;
+    const source=byId('original'),output=byId('output'),ready=!source.hidden&&!output.hidden;
+    const values={sourceFileName:ready?(source.dataset.filename||'已上传图片'):'未上传图片',outputFileName:'PNG 输出',
+      sourceDimensions:ready?`${source.width} × ${source.height}`:'—',outputDimensions:ready?`${output.width} × ${output.height}`:'—',
+      sourceState:ready?'原始':'待上传',outputState:ready?'就绪':'待上传'};
+    for(const [id,value] of Object.entries(values)){const node=byId(id);if(node&&node.textContent!==value){node.textContent=value;node.title=value;}}
+  }
   function refreshView() {
     if(!workspace)return;
     const output=byId('output');
+    refreshInfo();chooseLayout();
     workspace.classList.toggle('has-image',!output.hidden);
     if(mobile()&&!output.hidden) {
-      const preview=output.closest('.preview'),css=getComputedStyle(preview),outer=getComputedStyle(panels);
-      const px=(style,name)=>parseFloat(style[name])||0;
-      const width=preview.getBoundingClientRect().width-px(css,'paddingLeft')-px(css,'paddingRight')-2;
+      const preview=output.closest('.preview');
+      const width=preview.getBoundingClientRect().width-boxSpace(preview,'x')-2;
       const footer=Math.max(workspace.querySelector('.canvas-toolbar').getBoundingClientRect().height,workspace.querySelector('.orb-bar').getBoundingClientRect().height);
-      const chrome=footer+output.closest('.panel').querySelector('h2').getBoundingClientRect().height+
-        px(outer,'paddingTop')+px(outer,'paddingBottom')+px(css,'paddingTop')+px(css,'paddingBottom')+4;
+      const chrome=footer+paneMetrics(output.closest('.panel')).y+boxSpace(panels,'y')+boxSpace(workspace,'y');
       // Height depends on pane width + source ratio, never on scrollbar/content height.
       const cap=Math.min(innerHeight,window.visualViewport?.height||innerHeight)*(innerWidth>innerHeight?.50:.56);
       const value=Math.min(cap,Math.ceil(width*output.height/output.width+chrome))+'px';
@@ -66,11 +103,14 @@ window.ObserverWorkbench = (()=>{
   }
   function refreshInteraction() {
     if(!orb||!controller)return;
+    refreshInfo();
     const info=controller.info(),manual=activeGroup===5&&info.editable;
     const box=manual&&info.target==='boxes',fragment=manual&&info.target==='fragments';
     orb.dataset.mode=box?'box':'focus';
+    orb.closest('.orb-bar').dataset.mode=orb.dataset.mode;
     orb.disabled=!!pendingFocus||!operation&&(!info.ready||fragment||(box&&!info.selected));
     orb.setAttribute('aria-label',box?'移动识别框':'选择识别焦点');
+    orb.title=orb.getAttribute('aria-label');
     orbStatus.title=box&&info.selected?`${info.index+1}/${info.total}`:'';
     orbStatus.textContent=box?(info.selected?'移动框':'选方框'):fragment?'碎片编辑':'选焦点';
     for(const b of [previousBox,nextBox]){b.hidden=!box;b.disabled=!!operation||!!pendingFocus||!info.total;}
@@ -125,6 +165,9 @@ window.ObserverWorkbench = (()=>{
     const heading=document.createElement('div');heading.className='heading-copy';header.prepend(heading);heading.append(header.querySelector('h1'),intro);
     intro.textContent='我把房间扫描了一遍，没找到昨晚的声音。Archive_03 未响应';
     main.querySelector('.build').textContent='浏览器本地处理';
+    const mark=document.createElementNS('http://www.w3.org/2000/svg','svg');mark.classList.add('brand-mark');mark.setAttribute('viewBox','0 0 64 64');mark.setAttribute('aria-hidden','true');
+    mark.innerHTML='<g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square"><ellipse cx="32" cy="31" rx="25" ry="12" transform="rotate(-33 32 31)" stroke-dasharray="19 3 11 2 7 3"/></g><circle cx="31" cy="31" r="5" fill="currentColor"/><rect x="45" y="10" width="7" height="6" fill="currentColor"/><rect x="6" y="48" width="6" height="6" fill="currentColor"/>';
+    header.prepend(mark);
     const root=document.createElement('div');root.id='workbench';main.append(root);
     const sidebar=document.createElement('aside');sidebar.id='parameterWorkspace';sidebar.setAttribute('aria-label','参数工作区');root.append(sidebar);
     const global=document.createElement('div');global.className='global-actions';sidebar.append(global);
@@ -150,14 +193,17 @@ window.ObserverWorkbench = (()=>{
     const tabs=[],sections=[];
     groups.forEach(([name,path,nodes],index)=>{
       const section=document.createElement('section');section.className='parameter-group';section.id='parameterGroup'+index;section.hidden=index!==0;section.setAttribute('aria-label',name);
-      const h=document.createElement('h2');h.textContent=name;section.append(h,...nodes);scroll.append(section);sections.push(section);
+      const h=document.createElement('h2');h.dataset.index=String(index+1).padStart(2,'0');h.textContent=name;section.append(h,...nodes);scroll.append(section);sections.push(section);
       const tab=button('functionTab'+index,name,path,()=>{
         activeGroup=index;refreshInteraction();
         sections.forEach((s,i)=>s.hidden=i!==index);tabs.forEach((t,i)=>{t.classList.toggle('selected',i===index);t.setAttribute('aria-pressed',String(i===index));});scroll.scrollTop=0;
         tab.scrollIntoView({block:'nearest',inline:'nearest'});
-      });tab.classList.toggle('selected',index===0);tab.setAttribute('aria-pressed',String(index===0));tab.setAttribute('aria-controls',section.id);navigation.append(tab);tabs.push(tab);
+      });tab.dataset.index=String(index+1).padStart(2,'0');tab.classList.toggle('selected',index===0);tab.setAttribute('aria-pressed',String(index===0));tab.setAttribute('aria-controls',section.id);navigation.append(tab);tabs.push(tab);
     });
     workspace=document.createElement('section');workspace.id='canvasWorkspace';workspace.setAttribute('aria-label','实时画布工作区');root.append(workspace);
+    const workspaceHead=document.createElement('div');workspaceHead.className='workspace-heading';
+    const workspaceTitle=document.createElement('strong');workspaceTitle.textContent='实时工作区';
+    const layoutInfo=document.createElement('span');layoutInfo.id='layoutInfo';layoutInfo.textContent='左右对照';workspaceHead.append(workspaceTitle,layoutInfo);workspace.append(workspaceHead);
     const toolbar=document.createElement('div');toolbar.className='canvas-toolbar';workspace.append(toolbar);
     toolbar.append(button('undoAction','撤销','M9 4 3 10l6 6M3 10h11a6 6 0 0 1 6 6'),button('redoAction','重做','m15 4 6 6-6 6m6-6H10a6 6 0 0 0-6 6'));
     byId('downloadPNG').prepend(icon('M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5'));toolbar.append(byId('downloadPNG'));
@@ -168,25 +214,32 @@ window.ObserverWorkbench = (()=>{
     const toolbarLock=document.createElement('fieldset');toolbarLock.className='toolbar-lock';toolbarLock.append(...toolbar.childNodes);toolbar.append(toolbarLock);
     // Native mobile click synthesis can be dropped after pointer capture/locking.
     // Activate an unmoved touch once at release; ignore only its later ghost click.
-    let toolbarTouch=null,ghostClick=null;
-    toolbar.addEventListener('pointerdown',event=>{
-      const target=event.target.closest('button');
-      if(event.pointerType==='touch'&&target&&!target.disabled&&!toolbarLock.disabled)
-        toolbarTouch={target,id:event.pointerId,x:event.clientX,y:event.clientY};
+    let buttonTouch=null,ghostClick=null;
+    root.addEventListener('pointerdown',event=>{
+      buttonTouch=null;const target=event.target.closest('button');
+      if(event.pointerType==='touch'&&target&&target.id!=='mobileOrb'&&!target.matches(':disabled')&&!operation&&!pendingFocus)
+        buttonTouch={target,id:event.pointerId,x:event.clientX,y:event.clientY};
     });
-    toolbar.addEventListener('pointercancel',()=>{toolbarTouch=null;});
-    toolbar.addEventListener('pointerup',event=>{
-      const touch=toolbarTouch;toolbarTouch=null;
+    root.addEventListener('pointercancel',()=>{buttonTouch=null;});
+    root.addEventListener('pointerup',event=>{
+      const touch=buttonTouch;buttonTouch=null;
       if(!touch||touch.id!==event.pointerId||touch.target!==event.target.closest('button')||
-        touch.target.disabled||toolbarLock.disabled||Math.hypot(event.clientX-touch.x,event.clientY-touch.y)>8)return;
+        touch.target.matches(':disabled')||operation||pendingFocus||Math.hypot(event.clientX-touch.x,event.clientY-touch.y)>8)return;
       ghostClick={target:touch.target,time:performance.now()};touch.target.click();
     });
-    toolbar.addEventListener('click',event=>{
+    root.addEventListener('click',event=>{
       if(event.isTrusted&&event.detail>0&&ghostClick&&event.target.closest('button')===ghostClick.target&&
         performance.now()-ghostClick.time<700&&(event.pointerType!=='mouse'||event.sourceCapabilities?.firesTouchEvents))event.stopImmediatePropagation();
     },true);
     byId('fitCanvas').className='desktop-only';expand.className='desktop-only';
-    panels=main.querySelector('.panels');workspace.append(panels);byId('outputLabel').textContent='实时输出';
+    panels=main.querySelector('.panels');panels.dataset.layout='side';workspace.append(panels);
+    [['originalLabel','原图','CLICK TO FOCUS','source'],['outputLabel','实时输出','ARCHIVE / 03','output']].forEach(([id,label,helper,prefix])=>{
+      const title=byId(id),primary=document.createElement('span'),secondary=document.createElement('span');
+      primary.className='pane-title';primary.textContent=label;secondary.className='pane-helper';secondary.textContent=helper;title.replaceChildren(primary,secondary);
+      const info=document.createElement('div');info.className='image-info';
+      for(const [suffix,name] of [['FileName','pane-file'],['Dimensions','pane-dimensions'],['State','pane-state']]){const node=document.createElement('span');node.id=prefix+suffix;node.className=name;info.append(node);}
+      title.closest('.panel').append(info);
+    });
     for(const id of ['zoomOut','zoomIn','canvasZoomValue'])byId(id).classList.add('desktop-only');
     markers=['original','output'].map(id=>{const marker=document.createElement('span');marker.className='focus-crosshair';marker.id=id+'FocusMarker';marker.hidden=true;marker.setAttribute('aria-hidden','true');workspace.append(marker);return marker;});
     const orbBar=document.createElement('div');orbBar.className='orb-bar';orbBar.setAttribute('aria-label','手机精确操控');
@@ -194,8 +247,10 @@ window.ObserverWorkbench = (()=>{
     previousBox=button('previousBox','上一识别框','m14 5-7 7 7 7',()=>controller?.selectBox(-1));
     nextBox=button('nextBox','下一识别框','m10 5 7 7-7 7',()=>controller?.selectBox(1));
     orb=button('mobileOrb','选择识别焦点','M12 4v16M4 12h16');orb.disabled=true;
+    orb.lastChild.remove(); // Keep the accessible label; the visible orb contains only +.
     const thumb=document.createElement('span');thumb.className='orb-thumb';orb.append(thumb);
-    orbBar.append(orbStatus,previousBox,orb,nextBox);workspace.append(orbBar);
+    const orbHint=document.createElement('span');orbHint.className='orb-hint';orbHint.textContent='拖动右侧触控球试试吖^^';
+    orbBar.append(orbStatus,previousBox,orbHint,orb,nextBox);workspace.append(orbBar);
     orb.addEventListener('pointerdown',event=>{
       if(!mobile()||orb.disabled||operation||event.isPrimary===false||event.button!==0)return;
       event.preventDefault();const info=controller.info(),mode=orb.dataset.mode;
