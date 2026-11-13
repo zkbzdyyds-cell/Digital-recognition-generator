@@ -132,7 +132,13 @@ canvas {display:block;max-width:none;max-height:none;width:auto;height:auto;obje
 .focus-crosshair::before,.focus-crosshair::after {content:'';position:absolute;background:var(--green-strong);box-shadow:0 0 0 1px #1a211780;}
 .focus-crosshair::before {width:1px;height:14px;left:6.5px;top:0;}
 .focus-crosshair::after {height:1px;width:14px;top:6.5px;left:0;}
-.orb-bar,.mobile-only {display:none;}
+.orb-bar,.mobile-only,.mobile-sheet-header {display:none;}
+.foreground-color-field {display:flex;flex-direction:column;gap:5px;}
+.color-dots {display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
+.color-dots .color-dot {position:relative;min-width:38px;width:38px;height:38px;min-height:38px;padding:0;border:0;background:transparent;touch-action:manipulation;}
+.color-dot::after {content:'';position:absolute;inset:7px;border-radius:50%;background:var(--swatch);border:1px solid #8b8d83;}
+.color-dot[aria-pressed='true']::before {content:'';position:absolute;inset:3px;border:1px solid #4e553e;border-radius:50%;}
+#status a {color:var(--green-ink);text-decoration:underline;display:inline-block;padding:4px 0;}
 .orb-operating #parameterWorkspace,.orb-operating .canvas-toolbar {opacity:.42;}
 .orb-operating .canvas-toolbar,.orb-operating .panels {pointer-events:none;}
 @media (max-width:1100px) and (min-width:821px) {
@@ -150,12 +156,18 @@ canvas {display:block;max-width:none;max-height:none;width:auto;height:auto;obje
   .intro {font-size:9px;line-height:1.3;margin-top:4px;padding-left:7px;}
   header>.build {display:none;}
   #workbench {display:flex;flex-direction:column;gap:7px;}
-  #canvasWorkspace {order:0;flex:none;height:var(--mobile-preview-height,56dvh);min-height:300px;max-height:62dvh;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto;}
-  #canvasWorkspace.has-image {min-height:175px;}
-  #parameterWorkspace {order:1;flex:1;}
+  #canvasWorkspace {order:1;flex:1 1 0;height:auto;min-height:100px;max-height:none;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) 38px;overflow:visible;}
+  #canvasWorkspace.has-image {min-height:100px;}
+  #parameterWorkspace {order:2;flex:0 0 var(--sheet-height,240px);height:var(--sheet-height,240px);min-height:0;display:flex;flex-direction:column;}
+  .mobile-sheet-header {display:flex;flex:none;min-height:34px;height:34px;justify-content:space-between;align-items:center;padding:3px 9px;border-bottom:1px solid var(--line2);}
+  .mobile-sheet-header strong {font-size:12px;font-weight:600;}
+  #mobileExpand {min-height:27px;padding:3px 9px;font-size:11px;}
+  #parameterScroll {order:1;flex:1 1 0;}
+  .function-navigation {order:2;flex:none;}
+  #workbench>.global-actions {order:0;flex:none;max-height:25dvh;border:1px solid var(--line);border-radius:5px;}
   .workspace-heading {display:none;}
-  .canvas-toolbar {grid-row:2;grid-column:1;gap:3px;padding:4px;flex-wrap:nowrap;min-width:0;border-bottom:0;border-top:1px solid var(--line2);}
-  .canvas-toolbar button {min-height:38px;padding:6px;font-size:11px;gap:3px;}
+  .canvas-toolbar {grid-row:2;grid-column:1;gap:3px;padding:0 4px;flex-wrap:nowrap;min-width:0;border-bottom:0;border-top:1px solid var(--line2);border-radius:0 0 0 9px;}
+  .canvas-toolbar button {min-height:34px;padding:6px;font-size:11px;gap:3px;}
   .canvas-toolbar button,.function-navigation button,.orb-bar button {touch-action:manipulation;}
   #undoAction,#redoAction,#downloadPNG {font-size:0;gap:0;min-width:34px;}
   #downloadPNG {gap:3px;}
@@ -170,15 +182,18 @@ canvas {display:block;max-width:none;max-height:none;width:auto;height:auto;obje
   .image-info {grid-template-columns:minmax(0,1fr) auto;gap:3px;font-size:8px;line-height:10px;min-height:15px;margin-top:4px;padding-top:4px;}
   .pane-dimensions {display:none;}
   .desktop-only {display:none!important;}
-  .orb-bar {display:flex;grid-row:2;grid-column:2;align-items:center;justify-content:flex-end;gap:4px;padding:3px 5px 3px 0;border-top:1px solid var(--line2);}
+  .orb-bar {position:relative;z-index:10;display:flex;grid-row:2;grid-column:2;align-self:center;align-items:center;justify-content:flex-end;gap:4px;height:24px;min-height:0;padding:0 8px 0 5px;margin-right:4px;border:1px solid #c7c9c0;border-radius:13px;background:#f4f4ee;overflow:visible;}
+  .orb-dock {position:relative;display:block;flex:0 0 44px;width:44px;height:24px;overflow:visible;}
+  .orb-origin {position:absolute;left:19px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--green-strong);box-shadow:0 0 0 2px #dfe8d4;pointer-events:none;z-index:1;}
+  .orb-line {position:absolute;left:22px;top:12px;height:1px;background:#869469;transform-origin:0 50%;pointer-events:none;z-index:0;}
+  #mobileOrb {position:absolute!important;left:0;top:-10px;z-index:2;will-change:transform;}
   #orbStatus {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
-  .orb-hint {font-size:9px;color:#5d5e57;text-align:right;line-height:1.3;max-width:112px;}
+  .orb-hint {font-size:9px;color:#5d5e57;text-align:right;line-height:1.3;max-width:142px;}
   .orb-bar[data-mode='box'] .orb-hint {max-width:70px;}
   .orb-bar button {display:grid;place-items:center;position:relative;flex:none;padding:0;border:1px solid #a3ad92;background:var(--white);color:#343b29;}
-  .orb-bar button:not(#mobileOrb) {font-size:0;width:28px;height:40px;min-height:40px;border:0;border-radius:5px;}
+  .orb-bar button:not(#mobileOrb) {font-size:0;width:25px;height:32px;min-height:32px;border:0;border-radius:5px;}
   #mobileOrb {width:44px;height:44px;min-height:44px;gap:0;font-size:0;line-height:0;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff 0%,#e7eedc 40%,#aeb7a0 100%);box-shadow:0 2px 5px #0002,inset 0 0 0 3px #ffffff66;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
   #mobileOrb svg {position:relative;z-index:1;pointer-events:none;}
-  #mobileOrb .orb-thumb {position:absolute;left:50%;top:50%;margin:-10px;width:20px;height:20px;border-radius:50%;background:#cad3bd60;pointer-events:none;}
   #mobileOrb.active {border-color:#505e2a;background:var(--green);}
   #mobileOrb:disabled {opacity:.4;}
   .parameter-group>h2 {display:none;}
@@ -192,20 +207,24 @@ canvas {display:block;max-width:none;max-height:none;width:auto;height:auto;obje
   .global-actions .template-card {padding:4px;}
   .global-actions .template-card img {height:70px;}
   .template-card .actions button {min-height:34px;}
-  .function-navigation {display:flex;overflow-x:auto;gap:6px;padding:7px;scrollbar-width:thin;overscroll-behavior-x:contain;}
-  .function-navigation button {flex:0 0 auto;min-height:40px;padding:8px;font-size:12px;}
-  .function-navigation::after {content:'›';position:sticky;right:-7px;align-self:stretch;display:grid;place-items:center;min-width:17px;background:linear-gradient(90deg,transparent,var(--paper) 40%);color:var(--soft);pointer-events:none;}
+  .function-navigation {display:flex;overflow-x:auto;gap:3px;padding:4px;scrollbar-width:thin;overscroll-behavior-x:contain;border-bottom:0;}
+  .function-navigation button {flex:1 0 45px;flex-direction:column;justify-content:center;gap:3px;min-height:48px;padding:4px 3px;font-size:10px;border-color:transparent;}
+  .function-navigation button::before,.function-name {display:none;}
+  .function-navigation button::after {content:attr(data-short);}
+  .function-navigation button.selected {background:#e8ecd9;border-color:#b4c487;}
+  .function-navigation button svg {width:17px;height:17px;}
   #parameterScroll {padding:10px;}
   .parameter-group input[type='range'] {min-height:38px;touch-action:pan-y;}
   .structure {margin-top:12px;gap:4px 7px;}
 }
 @media (max-width:820px) and (orientation:landscape), (pointer:coarse) and (max-width:1100px) and (orientation:landscape) {
   header {padding-bottom:4px;}.intro {margin-top:2px;}
-  #canvasWorkspace {height:var(--mobile-preview-height,50dvh);min-height:175px;max-height:58dvh;}
+  #canvasWorkspace {height:auto;min-height:100px;max-height:none;}
+  #workbench>.global-actions {max-height:min(58px,18dvh);}
   .global-actions {max-height:18dvh;}
   .global-actions .upload,.global-actions #randomEffects {min-height:32px;}
   .function-navigation {padding:4px;}
-  .function-navigation button {min-height:36px;padding:6px 8px;}
+  .function-navigation button {min-height:39px;padding:3px;}
 }
 @media (max-width:355px) {
   h1 {font-size:14px;}.brand-mark {width:29px;height:29px;}

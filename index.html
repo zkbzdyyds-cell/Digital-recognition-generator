@@ -2246,12 +2246,15 @@ window.ObserverForeground = (() => {
       const point = focus ? `focus_${focus[0]}_${focus[1]}` : "auto";
       const styleName = overlayStyle.value === "VECTOR" ? "vector" : overlayStyle.value === "SCAN" ? `scan_d${distortionStrength.value}` : "ink";
       const filename = `image_observer_html_build_02_10_${styleName}_${overlayColor.value.slice(1)}_s${output.dataset.structure.padStart(3,"0")}_${point}_${strokeWidth.value.toLowerCase()}_${mode}.png`;
-      function finish(blob) {
+      async function finish(blob) {
         snapshot.width = snapshot.height = 1;
         if (pendingExport !== token || generation !== token.generation) return;
-        pendingExport = null;
-        downloadPNG.disabled = false;
-        if (!blob) { message("PNG 保存失败，请重试。","error"); return; }
+        if (!blob) { pendingExport=null;downloadPNG.disabled=false;message("PNG 保存失败，请重试。","error"); return; }
+        try {
+          if(await ObserverWorkbench.saveMobilePNG(blob,filename,()=>pendingExport===token&&generation===token.generation))return;
+          if(pendingExport!==token||generation!==token.generation)return;
+        } catch (_) { message("PNG 分享失败，请重试。","error");return; }
+        finally {if(pendingExport===token){pendingExport=null;downloadPNG.disabled=false;}}
         const url = URL.createObjectURL(blob), link = document.createElement("a");
         link.href = url;
         link.download = filename;
